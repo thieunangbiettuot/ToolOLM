@@ -38,7 +38,8 @@ def get_device_fingerprint():
 def check_license_validity():
     """Kiểm tra tính hợp lệ của license"""
     if not os.path.exists(LICENSE_FILE):
-        print_status("⛔ Không tìm thấy license. Vui lòng kích hoạt!", 'error', Colors.RED)
+        # KHÔNG CÓ LICENSE = CHƯA KÍCH HOẠT
+        # Trả về False để main.py xử lý
         return False
     
     try:
@@ -49,15 +50,21 @@ def check_license_validity():
         today = datetime.now().strftime("%d/%m/%Y")
         
         if expire_date != today:
-            print_status("⚠️  License đã hết hạn. Vui lòng lấy key mới!", 'warning', Colors.YELLOW)
+            # HẾT HẠN - XÓA VÀ BÁO LẠI
             try:
                 os.remove(LICENSE_FILE)
             except:
                 pass
             return False
         
+        # CÒN HẠN
         return True
     except:
+        # FILE BỊ LỖI - XÓA ĐI
+        try:
+            os.remove(LICENSE_FILE)
+        except:
+            pass
         return False
 
 def verify_device_lock(username):
@@ -304,15 +311,8 @@ HEADERS = {
 }
 
 def login_olm():
-    """Đăng nhập OLM với kiểm tra license và device lock"""
+    """Đăng nhập OLM với kiểm tra device lock"""
     print_header("ĐĂNG NHẬP OLM")
-    
-    # KIỂM TRA LICENSE (THÊM MỚI)
-    if not check_license_validity():
-        print_status("License không hợp lệ hoặc đã hết hạn!", 'warning', Colors.YELLOW)
-        print_status("Vui lòng đăng xuất để lấy key mới.", 'info', Colors.CYAN)
-        wait_enter()
-        return None, None, None
     
     # Chọn tài khoản đã lưu
     saved_username, saved_password = select_saved_account()
