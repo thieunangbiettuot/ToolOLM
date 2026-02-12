@@ -20,7 +20,7 @@ from datetime import datetime
 # ========== CẤU HÌNH HỆ THỐNG ==========
 API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
-URL_TOOL_CODE = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/ToolOLM_Fixed.py"
+URL_TOOL_CODE = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/laucher.py"
 
 CONFIG_FILE = "system_config.json"
 
@@ -72,6 +72,14 @@ def get_device_id():
     except:
         return "UNKNOWN_DEVICE"
 
+def get_ip_address():
+    """Lấy địa chỉ IP công cộng"""
+    try:
+        response = requests.get('https://api.ipify.org', timeout=5)
+        return response.text.strip()
+    except:
+        return "0.0.0.0"
+
 def check_internet():
     """Kiểm tra kết nối Internet"""
     try:
@@ -92,10 +100,21 @@ def check_local_license():
         
         # Kiểm tra ngày hết hạn
         if data.get("expire") == datetime.now().strftime("%d/%m/%Y"):
-            # Kiểm tra device ID (chống copy file sang máy khác)
-            if data.get("device_id") == get_device_id():
+            # Lấy IP và Device ID hiện tại
+            current_ip = get_ip_address()
+            current_device = get_device_id()
+            
+            # Kiểm tra IP hoặc Device ID (đổi 1 trong 2 → phải lấy key mới)
+            saved_ip = data.get("ip_address")
+            saved_device = data.get("device_id")
+            
+            if saved_ip == current_ip and saved_device == current_device:
                 if data.get("remain", 0) > 0:
                     return data
+            else:
+                # IP hoặc Device đã thay đổi → xóa license
+                print_status("⚠️  Phát hiện thay đổi IP hoặc thiết bị!", 'warning', 'yellow')
+                print_status("Vui lòng lấy key mới để tiếp tục.", 'info', 'cyan')
     except:
         pass
     
@@ -110,13 +129,14 @@ def check_local_license():
 def save_license(mode, remain):
     """Lưu thông tin license"""
     device_code = get_device_id()
+    ip_address = get_ip_address()
     
     data = {
         "mode": mode,
         "remain": remain,
         "expire": datetime.now().strftime("%d/%m/%Y"),
         "device_id": device_code,
-        "account_locked": None
+        "ip_address": ip_address
     }
     
     try:
@@ -125,6 +145,7 @@ def save_license(mode, remain):
         
         if os.path.exists(CONFIG_FILE):
             print_status(f"✓ Đã lưu license ({mode})", 'success', 'green')
+            print_status(f"  Device: {device_code} | IP: {ip_address}", 'info', 'cyan')
         else:
             print_status("✖ Lỗi: File license không được tạo!", 'error', 'red')
             return False
