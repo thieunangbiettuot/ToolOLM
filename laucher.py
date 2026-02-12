@@ -20,7 +20,7 @@ from datetime import datetime
 # ========== CẤU HÌNH HỆ THỐNG ==========
 API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
-URL_TOOL_CODE = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/laucher.py"
+URL_TOOL_CODE = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
 
 CONFIG_FILE = "system_config.json"
 
