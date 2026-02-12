@@ -22,7 +22,6 @@ from datetime import datetime
 
 # ========== CẤU HÌNH BẢO MẬT (THÊM MỚI) ==========
 LICENSE_FILE = "system_config.json"
-DEVICE_LOCK_FILE = "device_info.dat"
 
 def get_device_fingerprint():
     """Tạo fingerprint thiết bị duy nhất"""
@@ -66,51 +65,6 @@ def check_license_validity():
         except:
             pass
         return False
-
-def verify_device_lock(username):
-    """Kiểm tra khóa thiết bị cho tài khoản"""
-    fingerprint, current_ip = get_device_fingerprint()
-    
-    if not os.path.exists(DEVICE_LOCK_FILE):
-        lock_data = {
-            'username': username,
-            'fingerprint': fingerprint,
-            'ip': current_ip,
-            'locked_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        }
-        
-        try:
-            with open(DEVICE_LOCK_FILE, 'w', encoding='utf-8') as f:
-                json.dump(lock_data, f, ensure_ascii=False, indent=2)
-            print_status(f"🔐 Thiết bị đã được liên kết với: {username}", 'success', Colors.GREEN)
-            return True
-        except:
-            print_status("Lỗi khi tạo khóa thiết bị!", 'error', Colors.RED)
-            return False
-    else:
-        try:
-            with open(DEVICE_LOCK_FILE, 'r', encoding='utf-8') as f:
-                lock_data = json.load(f)
-            
-            locked_username = lock_data.get('username')
-            locked_fingerprint = lock_data.get('fingerprint')
-            
-            if locked_fingerprint != fingerprint:
-                print_status("⛔ CẢNH BÁO BẢO MẬT!", 'error', Colors.RED)
-                print_status(f"Thiết bị đã liên kết với: {locked_username}", 'warning', Colors.YELLOW)
-                print_status("Không thể dùng tài khoản khác trên thiết bị này!", 'error', Colors.RED)
-                return False
-            
-            if locked_username != username:
-                print_status("⛔ TRUY CẬP BỊ TỪ CHỐI!", 'error', Colors.RED)
-                print_status(f"Chỉ có thể dùng tài khoản: {locked_username}", 'warning', Colors.YELLOW)
-                return False
-            
-            return True
-            
-        except:
-            print_status("Lỗi đọc thông tin khóa thiết bị!", 'error', Colors.RED)
-            return False
 
 def consume_attempt_and_check():
     """Trừ lượt và kiểm tra còn lượt không"""
@@ -332,11 +286,6 @@ def login_olm():
     
     if not username or not password:
         print_status("Tên đăng nhập và mật khẩu không được để trống!", 'error', Colors.RED)
-        wait_enter()
-        return None, None, None
-    
-    # KIỂM TRA DEVICE LOCK (THÊM MỚI)
-    if not verify_device_lock(username):
         wait_enter()
         return None, None, None
     
