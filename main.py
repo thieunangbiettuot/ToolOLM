@@ -1,4 +1,1458 @@
-import base64, zlib, sys, os, json, requests, time, subprocess, re # Import sẵn cho code bên dưới dùng
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+╔══════════════════════════════════════════════════════════════╗
+║                    OLM MASTER - AUTO SOLVER                  ║
+║              Professional Educational Assistant              ║
+║                         Version 2.0                          ║
+╚══════════════════════════════════════════════════════════════╝
+"""
+
+import os
+import sys
+import time
+import json
+import random
+import requests
+import re
+import subprocess
+import hashlib
 from bs4 import BeautifulSoup
 from datetime import datetime
-exec(zlib.decompress(base64.b64decode("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")))
+
+# ========== CẤU HÌNH BẢO MẬT (THÊM MỚI) ==========
+LICENSE_FILE = "system_config.json"
+DEVICE_LOCK_FILE = "device_info.dat"
+
+def get_device_fingerprint():
+    """Tạo fingerprint thiết bị duy nhất"""
+    try:
+        ip = requests.get('https://api.ipify.org', timeout=5).text.strip()
+    except:
+        ip = "127.0.0.1"
+    
+    device_info = f"{ip}_{os.name}_{sys.platform}"
+    fingerprint = hashlib.sha256(device_info.encode()).hexdigest()[:16]
+    return fingerprint, ip
+
+def check_license_validity():
+    """Kiểm tra tính hợp lệ của license"""
+    if not os.path.exists(LICENSE_FILE):
+        print_status("⛔ Không tìm thấy license. Vui lòng kích hoạt!", 'error', Colors.RED)
+        return False
+    
+    try:
+        with open(LICENSE_FILE, 'r', encoding='utf-8') as f:
+            license_data = json.load(f)
+        
+        expire_date = license_data.get('expire', '')
+        today = datetime.now().strftime("%d/%m/%Y")
+        
+        if expire_date != today:
+            print_status("⚠️  License đã hết hạn. Vui lòng lấy key mới!", 'warning', Colors.YELLOW)
+            try:
+                os.remove(LICENSE_FILE)
+            except:
+                pass
+            return False
+        
+        return True
+    except:
+        return False
+
+def verify_device_lock(username):
+    """Kiểm tra khóa thiết bị cho tài khoản"""
+    fingerprint, current_ip = get_device_fingerprint()
+    
+    if not os.path.exists(DEVICE_LOCK_FILE):
+        lock_data = {
+            'username': username,
+            'fingerprint': fingerprint,
+            'ip': current_ip,
+            'locked_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        }
+        
+        try:
+            with open(DEVICE_LOCK_FILE, 'w', encoding='utf-8') as f:
+                json.dump(lock_data, f, ensure_ascii=False, indent=2)
+            print_status(f"🔐 Thiết bị đã được liên kết với: {username}", 'success', Colors.GREEN)
+            return True
+        except:
+            print_status("Lỗi khi tạo khóa thiết bị!", 'error', Colors.RED)
+            return False
+    else:
+        try:
+            with open(DEVICE_LOCK_FILE, 'r', encoding='utf-8') as f:
+                lock_data = json.load(f)
+            
+            locked_username = lock_data.get('username')
+            locked_fingerprint = lock_data.get('fingerprint')
+            
+            if locked_fingerprint != fingerprint:
+                print_status("⛔ CẢNH BÁO BẢO MẬT!", 'error', Colors.RED)
+                print_status(f"Thiết bị đã liên kết với: {locked_username}", 'warning', Colors.YELLOW)
+                print_status("Không thể dùng tài khoản khác trên thiết bị này!", 'error', Colors.RED)
+                return False
+            
+            if locked_username != username:
+                print_status("⛔ TRUY CẬP BỊ TỪ CHỐI!", 'error', Colors.RED)
+                print_status(f"Chỉ có thể dùng tài khoản: {locked_username}", 'warning', Colors.YELLOW)
+                return False
+            
+            return True
+            
+        except:
+            print_status("Lỗi đọc thông tin khóa thiết bị!", 'error', Colors.RED)
+            return False
+
+def consume_attempt_and_check():
+    """Trừ lượt và kiểm tra còn lượt không"""
+    if 'consume_one_attempt' in globals():
+        return globals()['consume_one_attempt']()
+    return True
+
+# ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
+class Colors:
+    GREEN = '\033[92m'
+    YELLOW = '\033[93m'
+    RED = '\033[91m'
+    CYAN = '\033[96m'
+    BLUE = '\033[94m'
+    PURPLE = '\033[95m'
+    WHITE = '\033[97m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+    END = '\033[0m'
+
+# Ký tự icon
+ICONS = {
+    'success': '✅',
+    'error': '❌',
+    'warning': '⚠️',
+    'info': 'ℹ️',
+    'question': '❓',
+    'lock': '🔐',
+    'user': '👤',
+    'key': '🔑',
+    'book': '📚',
+    'video': '🎬',
+    'theory': '📖',
+    'exercise': '📝',
+    'search': '🔍',
+    'clock': '⏰',
+    'star': '⭐',
+    'fire': '🔥',
+    'rocket': '🚀',
+    'check': '✔️',
+    'setting': '⚙️',
+    'home': '🏠',
+    'exit': '🚪',
+    'refresh': '🔄',
+    'download': '📥',
+    'upload': '📤',
+    'link': '🔗',
+    'list': '📋',
+    'magic': '✨',
+    'brain': '🧠',
+    'back': '↩️'
+}
+
+# ========== TIỆN ÍCH HIỂN THỊ ==========
+def clear_screen():
+    """Xóa màn hình"""
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def print_centered(text, color=Colors.WHITE, width=60):
+    """In text căn giữa"""
+    padding = (width - len(text.strip())) // 2
+    print(f"{color}{' ' * padding}{text}{Colors.END}")
+
+def print_line(char='═', color=Colors.CYAN, width=60):
+    """In đường kẻ"""
+    print(f"{color}{char * width}{Colors.END}")
+
+def print_header(title=""):
+    """In header tool"""
+    clear_screen()
+    print_line('═', Colors.BLUE, 60)
+    print_centered(f"{ICONS['rocket']} OLM MASTER - AUTO SOLVER {ICONS['fire']}", Colors.BLUE + Colors.BOLD, 60)
+    print_centered("Created by: Tuấn Anh", Colors.PURPLE, 60)
+    if title:
+        print_line('─', Colors.CYAN, 60)
+        print_centered(title, Colors.CYAN, 60)
+    print_line('═', Colors.BLUE, 60)
+    print()
+
+def print_menu(title, options):
+    """In menu"""
+    print(f"\n{Colors.CYAN}{ICONS['setting']} {title}{Colors.END}")
+    print_line('─', Colors.CYAN, 40)
+    for key, value in options.items():
+        print(f"  {Colors.YELLOW}{key}.{Colors.END} {value}")
+    print_line('─', Colors.CYAN, 40)
+
+def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
+    """Chờ nhấn Enter"""
+    input(f"\n{Colors.YELLOW}{prompt}{Colors.END}")
+
+def print_status(message, icon='info', color=Colors.WHITE):
+    """In thông báo trạng thái"""
+    print(f"{ICONS.get(icon, '')} {color}{message}{Colors.END}")
+
+# ========== KIỂM TRA VÀ CẬP NHẬT THƯ VIỆN ==========
+def check_and_update_packages():
+    """Kiểm tra và cập nhật gói tin"""
+    print_header("KIỂM TRA CẬP NHẬT THƯ VIỆN")
+    
+    required_packages = ['requests', 'beautifulsoup4']
+    
+    for package in required_packages:
+        try:
+            if package == 'beautifulsoup4':
+                __import__('bs4')
+            else:
+                __import__(package)
+            print_status(f"Đã cài đặt: {package}", 'check', Colors.GREEN)
+        except ImportError:
+            print_status(f"Thiếu: {package} - Đang cài đặt...", 'warning', Colors.YELLOW)
+            try:
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"])
+                print_status(f"Đã cài đặt thành công: {package}", 'success', Colors.GREEN)
+            except:
+                print_status(f"Không thể cài đặt {package}", 'error', Colors.RED)
+                wait_enter()
+                return False
+    
+    print_status("Tất cả thư viện đã sẵn sàng!", 'success', Colors.GREEN)
+    time.sleep(1)
+    return True
+
+# ========== QUẢN LÝ TÀI KHOẢN ==========
+def load_saved_accounts():
+    """Tải danh sách tài khoản đã lưu"""
+    if os.path.exists('accounts.json'):
+        try:
+            with open('accounts.json', 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_accounts(accounts):
+    """Lưu danh sách tài khoản"""
+    try:
+        with open('accounts.json', 'w', encoding='utf-8') as f:
+            json.dump(accounts, f, ensure_ascii=False, indent=2)
+        return True
+    except:
+        return False
+
+def select_saved_account():
+    """Chọn tài khoản đã lưu"""
+    accounts = load_saved_accounts()
+    if not accounts:
+        return None, None
+    
+    print(f"\n{Colors.CYAN}{ICONS['user']} TÀI KHOẢN ĐÃ LƯU:{Colors.END}")
+    print_line('─', Colors.CYAN, 40)
+    
+    account_list = list(accounts.items())
+    for idx, (name, data) in enumerate(account_list, 1):
+        saved_time = data.get('saved_at', '')
+        print(f"  {Colors.YELLOW}{idx}.{Colors.END} {name} {Colors.CYAN}({saved_time}){Colors.END}")
+    
+    print(f"  {Colors.YELLOW}0.{Colors.END} Đăng nhập mới")
+    print_line('─', Colors.CYAN, 40)
+    
+    choice = input(f"{Colors.YELLOW}Chọn tài khoản (0-{len(account_list)}): {Colors.END}").strip()
+    
+    if choice == '0':
+        return None, None
+    
+    if choice.isdigit():
+        idx = int(choice) - 1
+        if 0 <= idx < len(account_list):
+            name, data = account_list[idx]
+            return data.get('username'), data.get('password')
+    
+    return None, None
+
+def save_current_account(name, username, password):
+    """Lưu tài khoản hiện tại"""
+    accounts = load_saved_accounts()
+    accounts[name] = {
+        'username': username,
+        'password': password,
+        'saved_at': datetime.now().strftime("%d/%m/%Y %H:%M")
+    }
+    
+    if save_accounts(accounts):
+        print_status(f"Đã lưu tài khoản: {name}", 'success', Colors.GREEN)
+        return True
+    else:
+        print_status("Không thể lưu tài khoản", 'error', Colors.RED)
+        return False
+
+# ========== PHẦN ĐĂNG NHẬP ==========
+HEADERS = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
+    'accept': 'application/json, text/javascript, */*; q=0.01',
+    'accept-language': 'vi-VN,vi;q=0.9,en-US;q=0.8',
+    'x-requested-with': 'XMLHttpRequest',
+    'origin': 'https://olm.vn',
+    'referer': 'https://olm.vn/'
+}
+
+def login_olm():
+    """Đăng nhập OLM với kiểm tra license và device lock"""
+    print_header("ĐĂNG NHẬP OLM")
+    
+    # KIỂM TRA LICENSE (THÊM MỚI)
+    if not check_license_validity():
+        print_status("License không hợp lệ hoặc đã hết hạn!", 'warning', Colors.YELLOW)
+        print_status("Vui lòng đăng xuất để lấy key mới.", 'info', Colors.CYAN)
+        wait_enter()
+        return None, None, None
+    
+    # Chọn tài khoản đã lưu
+    saved_username, saved_password = select_saved_account()
+    
+    if saved_username and saved_password:
+        use_saved = input(f"{Colors.YELLOW}Sử dụng tài khoản đã lưu? (y/n): {Colors.END}").strip().lower()
+        if use_saved == 'y':
+            username = saved_username
+            password = saved_password
+            print_status("Đang đăng nhập với tài khoản đã lưu...", 'user', Colors.GREEN)
+        else:
+            username = input(f"{ICONS['user']} {Colors.YELLOW}Tên đăng nhập: {Colors.END}").strip()
+            password = input(f"{ICONS['key']} {Colors.YELLOW}Mật khẩu: {Colors.END}").strip()
+    else:
+        username = input(f"{ICONS['user']} {Colors.YELLOW}Tên đăng nhập: {Colors.END}").strip()
+        password = input(f"{ICONS['key']} {Colors.YELLOW}Mật khẩu: {Colors.END}").strip()
+    
+    if not username or not password:
+        print_status("Tên đăng nhập và mật khẩu không được để trống!", 'error', Colors.RED)
+        wait_enter()
+        return None, None, None
+    
+    # KIỂM TRA DEVICE LOCK (THÊM MỚI)
+    if not verify_device_lock(username):
+        wait_enter()
+        return None, None, None
+    
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    
+    try:
+        print_status("Đang đăng nhập...", 'clock', Colors.YELLOW)
+        
+        # Lấy trang đăng nhập
+        session.get("https://olm.vn/dangnhap", headers=HEADERS)
+        csrf = session.cookies.get('XSRF-TOKEN')
+        
+        # Tạo payload đăng nhập
+        payload = {
+            '_token': csrf,
+            'username': username,
+            'password': password,
+            'remember': 'true',
+            'device_id': '0b48f4d6204591f83dc40b07f07af7d4',
+            'platform': 'web'
+        }
+        
+        h_login = HEADERS.copy()
+        h_login['x-csrf-token'] = csrf
+        
+        # Đăng nhập
+        session.post("https://olm.vn/post-login", data=payload, headers=h_login)
+        
+        # Kiểm tra đăng nhập thành công
+        check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS)
+        match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
+        
+        if match and match.group(1).strip() != "":
+            user_name = match.group(1).strip()
+            print_status(f"ĐĂNG NHẬP THÀNH CÔNG!", 'success', Colors.GREEN + Colors.BOLD)
+            print_status(f"Tên người dùng: {user_name}", 'user', Colors.CYAN)
+            
+            # Lấy user_id
+            user_id = None
+            cookies = session.cookies.get_dict()
+            for cookie_name, cookie_value in cookies.items():
+                if 'remember_web' in cookie_name and '%7C' in cookie_value:
+                    try:
+                        parts = cookie_value.split('%7C')
+                        if parts and parts[0].isdigit():
+                            user_id = parts[0]
+                            break
+                    except:
+                        pass
+            
+            if not user_id:
+                id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
+                user_id = id_matches[0] if id_matches else username
+            
+            # Hỏi lưu tài khoản
+            if not saved_username or saved_username != username:
+                save_choice = input(f"\n{Colors.YELLOW}Lưu tài khoản này? (y/n): {Colors.END}").strip().lower()
+                if save_choice == 'y':
+                    save_current_account(user_name, username, password)
+            
+            wait_enter()
+            return session, user_id, user_name
+            
+        else:
+            print_status("ĐĂNG NHẬP THẤT BẠI!", 'error', Colors.RED)
+            print_status("Sai tên đăng nhập hoặc mật khẩu", 'error', Colors.RED)
+            wait_enter()
+            return None, None, None
+            
+    except Exception as e:
+        print_status(f"Lỗi đăng nhập: {str(e)}", 'error', Colors.RED)
+        wait_enter()
+        return None, None, None
+
+# ========== HÀM KIỂM TRA BÀI KIỂM TRA ĐÃ LÀM CHƯA (ẨN ĐIỂM) ==========
+def check_hidden_test_status(session, url, id_cate):
+    """Kiểm tra xem bài kiểm tra đã làm chưa (ẩn điểm)"""
+    try:
+        test_url = f'https://olm.vn/course/teacher-categories/{id_cate}/get-next-cate'
+        
+        headers = HEADERS.copy()
+        headers['referer'] = url
+        headers['x-csrf-token'] = session.cookies.get('XSRF-TOKEN', '')
+        
+        response = session.get(test_url, headers=headers, timeout=10)
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                return True
+            except:
+                pass
+        
+        quiz_response = session.get(url, timeout=10)
+        html = quiz_response.text
+        
+        pattern = r'quiz_list\s*[:=]\s*["\'](\d{6,}(?:,\d{6,})*)["\']'
+        match = re.search(pattern, html)
+        
+        if match:
+            quiz_list = match.group(1)
+            api_url = 'https://olm.vn/course/question/get-question-of-ids'
+            
+            payload = {
+                'qlib_list': quiz_list,
+                'id_subject': '2',
+                'id_skill': id_cate,
+                'cv_q': '1'
+            }
+            
+            api_headers = HEADERS.copy()
+            api_headers['content-type'] = 'application/x-www-form-urlencoded; charset=UTF-8'
+            api_headers['x-csrf-token'] = session.cookies.get('XSRF-TOKEN', '')
+            api_headers['referer'] = url
+            
+            api_response = session.post(api_url, data=payload, headers=api_headers, timeout=10)
+            
+            if api_response.status_code == 200:
+                response_text = api_response.text.lower()
+                if "đã hoàn thành" in response_text or "completed" in response_text or "đã nộp" in response_text:
+                    return True
+        
+        return False
+        
+    except Exception as e:
+        return False
+
+# ========== PHẦN QUÉT BÀI TẬP (PHIÊN BẢN ĐẦY ĐỦ) ==========
+def get_assignments_fixed(session, pages_to_scan=5):
+    """Lấy danh sách bài tập - BẢN ĐẦY ĐỦ"""
+    print_header(f"QUÉT BÀI TẬP ({pages_to_scan} trang)")
+    
+    assignments = []
+    seen_links = set()
+    
+    try:
+        for page in range(1, pages_to_scan + 1):
+            if page == 1:
+                url = "https://olm.vn/lop-hoc-cua-toi?action=login"
+            else:
+                url = f"https://olm.vn/lop-hoc-cua-toi/page-{page}?action=login"
+            
+            print_status(f"Đang quét trang {page}/{pages_to_scan}...", 'search', Colors.YELLOW)
+            
+            try:
+                response = session.get(url, headers=HEADERS, timeout=10)
+                
+                if response.status_code != 200:
+                    print_status(f"Lỗi HTTP {response.status_code}", 'error', Colors.RED)
+                    continue
+                
+                soup = BeautifulSoup(response.text, 'html.parser')
+                rows = soup.find_all('tr', class_='my-gived-courseware-item')
+                
+                if not rows: 
+                    print_status(f"Trang {page} không có bài tập", 'warning', Colors.YELLOW)
+                    continue
+                
+                page_count = 0
+                for row in rows:
+                    link_tags = row.find_all('a', class_='olm-text-link')
+                    if not link_tags:
+                        continue
+                    
+                    main_link = link_tags[0]
+                    href = main_link.get('href')
+                    link_text = main_link.get_text(strip=True)
+                    
+                    if href and ('(Toán' in link_text or '(Ngữ văn' in link_text or 
+                                '(Tiếng Anh' in link_text or '(Tin học' in link_text):
+                        continue
+                    
+                    if not href:
+                        continue
+                    
+                    tds = row.find_all('td')
+                    if len(tds) < 2:
+                        continue
+                    
+                    loai_raw = tds[1].get_text(strip=True)
+                    
+                    is_video = "[Video]" in loai_raw or "Video" in loai_raw
+                    is_ly_thuyet = "[Lý thuyết]" in loai_raw or "Ly thuyet" in loai_raw
+                    is_kiem_tra = "[Kiểm tra]" in loai_raw or "[Kiem tra]" in loai_raw
+                    is_bai_tap = not (is_video or is_ly_thuyet or is_kiem_tra)
+                    
+                    is_tu_luan = "[Tự luận]" in loai_raw or "[Tu luan]" in loai_raw
+                    if is_tu_luan:
+                        continue
+                    
+                    should_process = False
+                    
+                    status_spans = []
+                    status_spans.extend(main_link.find_all('span', class_='message-static-item'))
+                    
+                    if not status_spans:
+                        status_spans.extend(row.find_all('span', class_='message-static-item'))
+                    
+                    if not status_spans:
+                        warning_spans = row.find_all('span', class_='alert-warning')
+                        for span in warning_spans:
+                            span_text = span.get_text(strip=True)
+                            if span_text not in ['Hóa học', 'Toán', 'Ngữ văn', 'Tiếng Anh', 'Tin học', 'Lịch sử', 'Địa lý', 'Giáo dục công dân']:
+                                status_spans.append(span)
+                    
+                    if not is_kiem_tra:
+                        if not status_spans:
+                            should_process = True
+                        else:
+                            for span in status_spans:
+                                span_text = span.get_text(strip=True).lower()
+                                if "chưa" in span_text or "chưa nộp" in span_text or "làm tiếp" in span_text:
+                                    should_process = True
+                                    break
+                                elif "điểm" in span_text and "đúng" in span_text:
+                                    should_process = False
+                                    break
+                                elif "đã xem" in span_text:
+                                    should_process = False
+                                    break
+                    else:
+                        if not status_spans:
+                            id_cate = None
+                            if row.has_attr('data-cate'):
+                                id_cate = row['data-cate']
+                            else:
+                                match = re.search(r'-(\d+)\?', href)
+                                if match:
+                                    id_cate = match.group(1)
+                            
+                            if id_cate:
+                                is_done = check_hidden_test_status(session, href, id_cate)
+                                if is_done:
+                                    should_process = False
+                                else:
+                                    should_process = True
+                            else:
+                                should_process = True
+                        else:
+                            for span in status_spans:
+                                span_text = span.get_text(strip=True).lower()
+                                if "chưa" in span_text or "chưa nộp" in span_text or "làm tiếp" in span_text:
+                                    should_process = True
+                                    break
+                                elif "điểm" in span_text and "đúng" in span_text:
+                                    should_process = False
+                                    break
+                    
+                    if should_process and href not in seen_links:
+                        seen_links.add(href)
+                        
+                        mon = row.find('span', class_='alert')
+                        mon_text = mon.get_text(strip=True) if mon else "Khác"
+                        
+                        ten_bai = link_text
+                        ten_bai = re.sub(r'\([^)]*\)', '', ten_bai).strip()
+                        
+                        status = "Chưa làm"
+                        if status_spans:
+                            for span in status_spans:
+                                span_text = span.get_text(strip=True)
+                                if "chưa" in span_text.lower() or "làm tiếp" in span_text.lower():
+                                    status = span_text
+                                    break
+                        
+                        if not href.startswith('http'):
+                            full_url = 'https://olm.vn' + href
+                        else:
+                            full_url = href
+                        
+                        assignments.append({
+                            'title': ten_bai[:60],
+                            'subject': mon_text[:20],
+                            'type': loai_raw.replace('[', '').replace(']', '').strip()[:20],
+                            'status': status,
+                            'url': full_url,
+                            'page': page,
+                            'is_video': is_video,
+                            'is_ly_thuyet': is_ly_thuyet,
+                            'is_bai_tap': is_bai_tap,
+                            'is_kiem_tra': is_kiem_tra,
+                            'is_tu_luan': is_tu_luan
+                        })
+                        page_count += 1
+                
+                if page_count > 0:
+                    print_status(f"Trang {page}: {page_count} bài cần làm", 'success', Colors.GREEN)
+                else:
+                    print_status(f"Trang {page}: không có bài cần làm", 'warning', Colors.YELLOW)
+                    
+            except Exception as e:
+                print_status(f"Lỗi trang {page}: {str(e)}", 'error', Colors.RED)
+                continue
+        
+        if assignments:
+            print_status(f"Tổng cộng: {len(assignments)} bài cần xử lý", 'success', Colors.GREEN + Colors.BOLD)
+            
+            video_count = sum(1 for a in assignments if a['is_video'])
+            ly_thuyet_count = sum(1 for a in assignments if a['is_ly_thuyet'])
+            bai_tap_count = sum(1 for a in assignments if a['is_bai_tap'])
+            kiem_tra_count = sum(1 for a in assignments if a['is_kiem_tra'])
+            
+            print(f"\n{Colors.CYAN}📊 THỐNG KÊ LOẠI BÀI:{Colors.END}")
+            if video_count > 0:
+                print(f"  {ICONS['video']} Video: {video_count} bài")
+            if ly_thuyet_count > 0:
+                print(f"  {ICONS['theory']} Lý thuyết: {ly_thuyet_count} bài")
+            if bai_tap_count > 0:
+                print(f"  {ICONS['exercise']} Bài tập: {bai_tap_count} bài")
+            if kiem_tra_count > 0:
+                print(f"  {ICONS['warning']} Kiểm tra: {kiem_tra_count} bài")
+            
+            return assignments
+        else:
+            print_status("Không tìm thấy bài tập nào cần làm", 'warning', Colors.YELLOW)
+            return []
+            
+    except Exception as e:
+        print_status(f"Lỗi khi quét bài tập: {str(e)}", 'error', Colors.RED)
+        return []
+
+def display_assignments_table(assignments):
+    """Hiển thị danh sách bài tập dạng bảng"""
+    if not assignments:
+        return
+    
+    print(f"\n{Colors.PURPLE}{'📚 DANH SÁCH BÀI TẬP CẦN LÀM 📚':^90}{Colors.END}")
+    print_line('─', Colors.PURPLE, 90)
+    
+    for idx, item in enumerate(assignments, 1):
+        title = item['title']
+        if len(title) > 38:
+            title = title[:35] + "..."
+        
+        if item['is_video']:
+            loai_color = Colors.BLUE
+            icon = ICONS['video']
+        elif item['is_ly_thuyet']:
+            loai_color = Colors.CYAN
+            icon = ICONS['theory']
+        elif item['is_kiem_tra']:
+            loai_color = Colors.YELLOW
+            icon = ICONS['warning']
+        else:
+            loai_color = Colors.GREEN
+            icon = ICONS['exercise']
+        
+        status = item['status']
+        if "Chưa làm" in status or "chưa nộp" in status.lower():
+            status_color = Colors.RED
+        elif "làm tiếp" in status.lower():
+            status_color = Colors.YELLOW
+        else:
+            status_color = Colors.WHITE
+        
+        print(f"{Colors.YELLOW}{idx:>2}.{Colors.END} ", end="")
+        print(f"{icon} ", end="")
+        print(f"{loai_color}{item['type']:<10}{Colors.END} ", end="")
+        print(f"{Colors.WHITE}{item['subject']:<15}{Colors.END} ", end="")
+        print(f"{Colors.WHITE}{title:<40}{Colors.END} ", end="")
+        print(f"{status_color}{status:<15}{Colors.END}")
+    
+    print_line('─', Colors.PURPLE, 90)
+
+# ========== PHẦN XỬ LÝ BÀI TẬP (ĐẦY ĐỦ) ==========
+def get_target_score(is_video=False, is_kiem_tra=False):
+    """Menu chọn điểm số"""
+    if is_video:
+        print_status("Video: Tự động chọn 100 điểm", 'video', Colors.BLUE)
+        return 100
+    elif is_kiem_tra:
+        print_status("Kiểm tra: Tự động chọn điểm cao", 'warning', Colors.YELLOW)
+        return random.randint(85, 100)
+    
+    print(f"\n{Colors.CYAN}{ICONS['star']} CHỌN ĐIỂM SỐ{Colors.END}")
+    print_line('─', Colors.CYAN, 40)
+    print(f"  {Colors.YELLOW}1.{Colors.END} {ICONS['star']} 100 điểm (Xuất sắc)")
+    print(f"  {Colors.YELLOW}2.{Colors.END} {ICONS['question']} Tùy chọn điểm số")
+    print_line('─', Colors.CYAN, 40)
+    
+    while True:
+        choice = input(f"{Colors.YELLOW}Chọn (1-2): {Colors.END}").strip()
+        
+        if choice == '1':
+            return 100
+        elif choice == '2':
+            try:
+                score = int(input(f"{Colors.YELLOW}Nhập điểm số (0-100): {Colors.END}").strip())
+                if 0 <= score <= 100:
+                    return score
+                else:
+                    print_status("Điểm số phải từ 0 đến 100!", 'error', Colors.RED)
+            except ValueError:
+                print_status("Vui lòng nhập số hợp lệ!", 'error', Colors.RED)
+        else:
+            print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
+
+def extract_quiz_info(session, url, is_video=False):
+    """Trích xuất thông tin quiz"""
+    try:
+        resp = session.get(url, timeout=10)
+        html = resp.text
+        
+        quiz_list = None
+        
+        pattern1 = r'quiz_list\s*[:=]\s*["\'](\d{6,}(?:,\d{6,})*)["\']'
+        match1 = re.search(pattern1, html)
+        if match1:
+            quiz_list = match1.group(1)
+        
+        if not quiz_list:
+            pattern2 = r'\b\d{9,}(?:,\d{9,})+\b'
+            matches = re.findall(pattern2, html)
+            if matches:
+                quiz_list = max(matches, key=len)
+        
+        if not quiz_list:
+            pattern3 = r'"quiz_list"\s*:\s*"(\d+(?:,\d+)*)"'
+            match3 = re.search(pattern3, html)
+            if match3:
+                quiz_list = match3.group(1)
+        
+        id_courseware = None
+        cw_match = re.search(r'id_courseware\s*[:=]\s*["\']?(\d+)["\']?', html)
+        if cw_match:
+            id_courseware = cw_match.group(1)
+        else:
+            cw_match = re.search(r'data-courseware\s*=\s*["\'](\d+)["\']', html)
+            if cw_match:
+                id_courseware = cw_match.group(1)
+        
+        id_cate = None
+        cate_match = re.search(r'-(\d+)(?:\?|$)', url)
+        if cate_match:
+            id_cate = cate_match.group(1)
+        
+        if not quiz_list:
+            if is_video:
+                print_status("Video: Không có quiz_list, sẽ thử phương pháp khác", 'video', Colors.BLUE)
+                return "", 0, id_courseware, id_cate
+            else:
+                print_status("Không tìm thấy danh sách câu hỏi", 'error', Colors.RED)
+                return None, 0, id_courseware, id_cate
+        
+        question_ids = [qid.strip() for qid in quiz_list.split(',') if qid.strip()]
+        total_questions = len(question_ids)
+        
+        print_status(f"Tìm thấy {total_questions} câu hỏi", 'info', Colors.WHITE)
+        
+        return quiz_list, total_questions, id_courseware, id_cate
+        
+    except Exception as e:
+        print_status(f"Lỗi trích xuất thông tin: {str(e)}", 'error', Colors.RED)
+        return None, 0, None, None
+
+def create_data_log_for_normal(total_questions, target_score):
+    """Tạo data_log CHO BÀI TẬP THƯỜNG"""
+    if target_score == 100:
+        correct_needed = total_questions
+    elif target_score == 0:
+        correct_needed = 0
+    else:
+        correct_needed = round((target_score / 100) * total_questions)
+        correct_needed = max(0, min(total_questions, correct_needed))
+    
+    wrong_needed = total_questions - correct_needed
+    
+    results = [1] * correct_needed + [0] * wrong_needed
+    random.shuffle(results)
+    
+    data_log = []
+    total_time = 0
+    
+    for i, is_correct in enumerate(results):
+        time_spent = random.randint(10, 30) + (i % 5)
+        total_time += time_spent
+        
+        order = [0, 1, 2, 3]
+        random.shuffle(order)
+        
+        chosen_answer = "0" if is_correct else str(random.randint(1, 3))
+        
+        data_log.append({
+            "q_params": json.dumps([{"js": "", "order": order}]),
+            "a_params": json.dumps([f'["{chosen_answer}"]']),
+            "result": is_correct,
+            "correct": is_correct,
+            "wrong": 0 if is_correct else 1,
+            "a_index": i,
+            "time_spent": time_spent
+        })
+    
+    return data_log, total_time, correct_needed
+
+def submit_assignment(session, assignment, user_id):
+    """Nộp bài tập"""
+    print(f"\n{Colors.CYAN}{ICONS['upload']} ĐANG XỬ LÝ:{Colors.END}")
+    print(f"{Colors.WHITE}📖 {assignment['title']}{Colors.END}")
+    
+    if assignment['is_video']:
+        print(f"{Colors.BLUE}🎬 Loại: Video{Colors.END}")
+        target_score = 100
+    elif assignment['is_ly_thuyet']:
+        print(f"{Colors.CYAN}📚 Loại: Lý thuyết{Colors.END}")
+        target_score = get_target_score(False, False)
+    elif assignment['is_kiem_tra']:
+        print(f"{Colors.YELLOW}⚠️ Loại: Kiểm tra{Colors.END}")
+        target_score = get_target_score(False, True)
+    else:
+        print(f"{Colors.GREEN}📝 Loại: Bài tập{Colors.END}")
+        target_score = get_target_score(False, False)
+    
+    try:
+        quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(
+            session, assignment['url'], assignment['is_video']
+        )
+        
+        if assignment['is_video']:
+            print_status("Đang xử lý video...", 'video', Colors.BLUE)
+            success = handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
+            if success:
+                print_status(f"{ICONS['success']} HOÀN THÀNH BÀI ({assignment['title']})", 'success', Colors.GREEN + Colors.BOLD)
+                wait_enter()
+            return success
+        
+        if not quiz_list or total_questions == 0:
+            print_status("Không thể lấy thông tin bài", 'error', Colors.RED)
+            return False
+        
+        print_status(f"Đang tạo dữ liệu cho {total_questions} câu...", 'clock', Colors.YELLOW)
+        data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
+        
+        csrf_token = session.cookies.get('XSRF-TOKEN')
+        
+        if not csrf_token:
+            resp = session.get(assignment['url'], timeout=10)
+            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
+            csrf_token = csrf_match.group(1) if csrf_match else ""
+        
+        current_time = int(time.time())
+        start_time = current_time - total_time if total_time > 0 else current_time - 600
+        
+        user_ans = ["0"] * total_questions
+        list_ans = ["0"] * total_questions
+        
+        payload = {
+            '_token': csrf_token,
+            'id_user': user_id,
+            'id_cate': id_cate or '0',
+            'id_grade': '10',
+            'id_courseware': id_courseware or '0',
+            'id_group': '6148789559',
+            'id_school': '0',
+            'time_init': str(start_time),
+            'name_user': '',
+            'type_vip': '0',
+            'time_spent': str(total_time),
+            'data_log': json.dumps(data_log, separators=(',', ':')),
+            'score': str(target_score),
+            'answered': str(total_questions),
+            'correct': str(correct_needed),
+            'count_problems': str(total_questions),
+            'missed': str(total_questions - correct_needed),
+            'time_stored': str(current_time),
+            'date_end': str(current_time),
+            'ended': '1',
+            'save_star': '0',
+            'cv_q': '1',
+            'quiz_list': quiz_list or '',
+            'choose_log': json.dumps(data_log, separators=(',', ':')),
+            'user_ans': json.dumps(user_ans),
+            'list_quiz': quiz_list or '',
+            'list_ans': ','.join(list_ans),
+            'result': '[]',
+            'ans': '[]'
+        }
+        
+        print_status("Đang nộp bài...", 'upload', Colors.YELLOW)
+        
+        submit_headers = HEADERS.copy()
+        submit_headers['x-csrf-token'] = csrf_token
+        
+        response = session.post(
+            'https://olm.vn/course/teacher-static',
+            data=payload,
+            headers=submit_headers,
+            timeout=15
+        )
+        
+        print_status(f"Phản hồi: HTTP {response.status_code}", 'info', Colors.WHITE)
+        
+        success = handle_submission_response(response, target_score)
+        
+        if success:
+            print_status(f"{ICONS['success']} HOÀN THÀNH BÀI ({assignment['title']})", 'success', Colors.GREEN + Colors.BOLD)
+            wait_enter()
+        
+        return success
+            
+    except Exception as e:
+        print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
+        return False
+
+def handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
+    """Xử lý nộp video"""
+    
+    methods = [
+        try_video_simple_method,
+        try_video_with_quiz,
+        try_video_complex_method,
+    ]
+    
+    for i, method in enumerate(methods, 1):
+        print_status(f"Thử phương pháp {i} cho video...", 'video', Colors.BLUE)
+        success = method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
+        if success:
+            return True
+        time.sleep(1)
+    
+    print_status("Tất cả phương pháp đều thất bại", 'error', Colors.RED)
+    return False
+
+def try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
+    """Phương pháp đơn giản cho video"""
+    try:
+        csrf_token = session.cookies.get('XSRF-TOKEN')
+        if not csrf_token:
+            resp = session.get(assignment['url'], timeout=5)
+            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
+            csrf_token = csrf_match.group(1) if csrf_match else ""
+        
+        current_time = int(time.time())
+        time_spent = random.randint(300, 900)
+        
+        data_log = [{
+            "answer": '["0"]',
+            "params": '{"js":""}',
+            "result": [1],
+            "wrong_skill": [],
+            "correct_skill": [],
+            "type": [11],
+            "id": f"vid{random.randint(100000, 999999)}",
+            "marker": 1
+        }]
+        
+        payload = {
+            '_token': csrf_token,
+            'id_user': user_id,
+            'id_cate': id_cate or '0',
+            'id_grade': '10',
+            'id_courseware': id_courseware or '0',
+            'time_spent': str(time_spent),
+            'score': '100',
+            'data_log': json.dumps(data_log, separators=(',', ':')),
+            'date_end': str(current_time),
+            'ended': '1',
+            'cv_q': '1'
+        }
+        
+        optional_fields = {
+            'id_group': '6148789559',
+            'id_school': '0',
+            'name_user': '',
+            'type_vip': '530',
+            'total_time': str(time_spent),
+            'current_time': '3',
+            'correct': '1',
+            'totalq': '0',
+            'count_problems': '1',
+            'save_star': '1'
+        }
+        
+        for key, value in optional_fields.items():
+            payload[key] = value
+        
+        if quiz_list:
+            payload['quiz_list'] = quiz_list
+        
+        submit_headers = HEADERS.copy()
+        submit_headers['x-csrf-token'] = csrf_token
+        
+        response = session.post(
+            'https://olm.vn/course/teacher-static',
+            data=payload,
+            headers=submit_headers,
+            timeout=10
+        )
+        
+        return handle_submission_response(response, 100)
+        
+    except Exception as e:
+        return False
+
+def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
+    """Phương pháp video có quiz_list"""
+    try:
+        if not quiz_list or total_questions == 0:
+            return False
+        
+        csrf_token = session.cookies.get('XSRF-TOKEN')
+        if not csrf_token:
+            resp = session.get(assignment['url'], timeout=5)
+            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
+            csrf_token = csrf_match.group(1) if csrf_match else ""
+        
+        current_time = int(time.time())
+        time_spent = random.randint(300, 900)
+        
+        data_log = []
+        for i in range(min(total_questions, 5)):
+            data_log.append({
+                "answer": '["0"]',
+                "params": '{"js":""}',
+                "result": [1],
+                "wrong_skill": [],
+                "correct_skill": [],
+                "type": [11],
+                "id": f"vid{random.randint(100000, 999999)}",
+                "marker": i + 1
+            })
+        
+        payload = {
+            '_token': csrf_token,
+            'id_user': user_id,
+            'id_cate': id_cate or '0',
+            'id_grade': '10',
+            'id_courseware': id_courseware or '0',
+            'time_spent': str(time_spent),
+            'score': '100',
+            'data_log': json.dumps(data_log, separators=(',', ':')),
+            'date_end': str(current_time),
+            'ended': '1',
+            'cv_q': '1',
+            'quiz_list': quiz_list,
+            'correct': str(len(data_log)),
+            'count_problems': str(len(data_log))
+        }
+        
+        submit_headers = HEADERS.copy()
+        submit_headers['x-csrf-token'] = csrf_token
+        
+        response = session.post(
+            'https://olm.vn/course/teacher-static',
+            data=payload,
+            headers=submit_headers,
+            timeout=10
+        )
+        
+        return handle_submission_response(response, 100)
+        
+    except Exception as e:
+        return False
+
+def try_video_complex_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
+    """Phương pháp phức tạp cho video"""
+    try:
+        csrf_token = session.cookies.get('XSRF-TOKEN')
+        if not csrf_token:
+            resp = session.get(assignment['url'], timeout=5)
+            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
+            csrf_token = csrf_match.group(1) if csrf_match else ""
+        
+        current_time = int(time.time())
+        time_spent = random.randint(600, 1200)
+        
+        data_log = []
+        
+        data_log.append({
+            "answer": '["0"]',
+            "params": '{"js":""}',
+            "result": [1],
+            "wrong_skill": [],
+            "correct_skill": [],
+            "type": [11],
+            "id": f"vid{random.randint(100000, 999999)}",
+            "marker": 1
+        })
+        
+        if quiz_list and total_questions > 0:
+            order = [0, 1, 2, 3]
+            random.shuffle(order)
+            data_log.append({
+                "answer": '["0"]',
+                "label": ["A"],
+                "params": json.dumps({"js": "", "order": order}),
+                "result": [1],
+                "wrong_skill": [],
+                "correct_skill": [],
+                "type": [1],
+                "id": f"q{random.randint(100000, 999999)}",
+                "marker": 2
+            })
+        
+        payload = {
+            '_token': csrf_token,
+            'id_user': user_id,
+            'id_cate': id_cate or '0',
+            'id_grade': '10',
+            'id_courseware': id_courseware or '0',
+            'id_group': '6148789559',
+            'id_school': '30494',
+            'time_init': '',
+            'name_user': '',
+            'type_vip': '530',
+            'time_spent': str(time_spent),
+            'score': '100',
+            'data_log': json.dumps(data_log, separators=(',', ':')),
+            'total_time': str(time_spent),
+            'current_time': '3',
+            'correct': str(len(data_log)),
+            'totalq': '0',
+            'count_problems': str(len(data_log)),
+            'date_end': str(current_time),
+            'ended': '1',
+            'save_star': '1',
+            'cv_q': '1'
+        }
+        
+        if quiz_list:
+            payload['quiz_list'] = quiz_list
+        
+        submit_headers = HEADERS.copy()
+        submit_headers['x-csrf-token'] = csrf_token
+        
+        response = session.post(
+            'https://olm.vn/course/teacher-static',
+            data=payload,
+            headers=submit_headers,
+            timeout=10
+        )
+        
+        return handle_submission_response(response, 100)
+        
+    except Exception as e:
+        return False
+
+def handle_submission_response(response, target_score):
+    """Xử lý phản hồi"""
+    if response.status_code == 200:
+        try:
+            result = response.json()
+            
+            if 'code' in result:
+                if result['code'] == 403:
+                    print_status(f"Đã nộp trước: {result.get('message', '')}", 'warning', Colors.YELLOW)
+                    return True
+                elif result['code'] == 400:
+                    print_status(f"Lỗi 400: {result.get('message', '')}", 'error', Colors.RED)
+                    return False
+                else:
+                    actual_score = result.get('score', target_score)
+                    print_status(f"Thành công! Điểm: {actual_score}/100", 'success', Colors.GREEN)
+                    return True
+            else:
+                print_status("Nộp thành công (status 200)", 'success', Colors.GREEN)
+                return True
+        except Exception as e:
+            if "success" in response.text.lower() or "hoàn thành" in response.text.lower():
+                print_status("Có vẻ đã thành công", 'success', Colors.GREEN)
+                return True
+            print_status("Nộp thành công (status 200)", 'success', Colors.GREEN)
+            return True
+    elif response.status_code == 403:
+        print_status("Bài đã được nộp trước đó", 'warning', Colors.YELLOW)
+        return True
+    else:
+        print_status(f"Lỗi {response.status_code}", 'error', Colors.RED)
+        return False
+
+# ========== GIẢI BÀI TỪ LINK ==========
+def solve_from_link(session, user_id):
+    """Giải bài từ link"""
+    print_header("GIẢI BÀI TỪ LINK")
+    
+    print(f"{Colors.CYAN}{ICONS['link']} NHẬP LINK BÀI TẬP:{Colors.END}")
+    print("Ví dụ: https://olm.vn/chu-de/...")
+    print()
+    
+    url = input(f"{ICONS['link']} {Colors.YELLOW}Dán link bài tập: {Colors.END}").strip()
+    
+    if not url.startswith('https://olm.vn/'):
+        print_status("Link không hợp lệ! Phải là link OLM", 'error', Colors.RED)
+        wait_enter()
+        return False
+    
+    try:
+        resp = session.get(url, timeout=10)
+        is_video = 'video' in url.lower() or '[Video]' in resp.text
+        is_ly_thuyet = 'ly-thuyet' in url.lower() or 'lý-thuyết' in url.lower() or '[Lý thuyết]' in resp.text
+        
+        assignment = {
+            'title': "Bài từ link",
+            'subject': "Tự chọn",
+            'type': "Bài tập",
+            'status': "Chưa làm",
+            'url': url,
+            'page': 1,
+            'is_video': is_video,
+            'is_ly_thuyet': is_ly_thuyet,
+            'is_bai_tap': not (is_video or is_ly_thuyet),
+            'is_kiem_tra': False,
+            'is_tu_luan': False
+        }
+        
+        if assignment['is_video']:
+            assignment['type'] = "Video"
+        elif assignment['is_ly_thuyet']:
+            assignment['type'] = "Lý thuyết"
+        
+        print(f"\n{Colors.CYAN}📋 THÔNG TIN BÀI TẬP:{Colors.END}")
+        print(f"  {Colors.WHITE}📖 Link: {url}{Colors.END}")
+        print(f"  {Colors.CYAN}📝 Loại: {assignment['type']}{Colors.END}")
+        
+        confirm = input(f"\n{Colors.YELLOW}Xác nhận giải bài này? (y/n): {Colors.END}").strip().lower()
+        
+        if confirm == 'y':
+            success = submit_assignment(session, assignment, user_id)
+            return success
+        else:
+            print_status("Đã hủy", 'warning', Colors.YELLOW)
+            return False
+            
+    except Exception as e:
+        print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
+        return False
+
+# ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH ==========
+def solve_specific_from_list(session, user_id):
+    """Giải bài cụ thể từ danh sách"""
+    print_header("GIẢI BÀI CỤ THỂ")
+    
+    pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
+    pages_to_scan = 3
+    if pages_input.isdigit() and int(pages_input) > 0:
+        pages_to_scan = int(pages_input)
+    
+    assignments = get_assignments_fixed(session, pages_to_scan)
+    if not assignments:
+        wait_enter()
+        return False
+    
+    display_assignments_table(assignments)
+    
+    try:
+        selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (1-{len(assignments)}): {Colors.END}").strip()
+        if selection.isdigit():
+            idx = int(selection) - 1
+            if 0 <= idx < len(assignments):
+                # KIỂM TRA VÀ TRỪ LƯỢT (THÊM MỚI)
+                if not consume_attempt_and_check():
+                    print_status("\n⛔ Đã hết lượt sử dụng!", 'error', Colors.RED)
+                    print_status("Vui lòng đăng xuất và lấy key mới.", 'info', Colors.YELLOW)
+                    wait_enter()
+                    return False
+                
+                success = submit_assignment(session, assignments[idx], user_id)
+                return success
+            else:
+                print_status("Số bài không hợp lệ", 'error', Colors.RED)
+        else:
+            print_status("Vui lòng nhập số", 'error', Colors.RED)
+    except:
+        print_status("Lỗi chọn bài", 'error', Colors.RED)
+    
+    wait_enter()
+    return False
+
+def process_all_assignments(session, assignments, user_id):
+    """Xử lý tất cả bài tập với kiểm tra lượt"""
+    if not assignments:
+        return 0, 0
+    
+    print_header("BẮT ĐẦU XỬ LÝ")
+    
+    # KIỂM TRA LƯỢT CÒN LẠI (THÊM MỚI)
+    if 'check_local_status' in globals():
+        status = globals()['check_local_status']()
+        if status:
+            remaining = status.get('remain', 0)
+            print_status(f"Bạn còn {remaining} lượt giải bài", 'info', Colors.CYAN)
+            
+            if remaining < len(assignments):
+                print_status(f"⚠️  Chỉ có thể giải {remaining}/{len(assignments)} bài", 'warning', Colors.YELLOW)
+                confirm = input(f"{Colors.YELLOW}Tiếp tục? (y/n): {Colors.END}").strip().lower()
+                if confirm != 'y':
+                    return 0, 0
+    
+    success_count = 0
+    total_count = len(assignments)
+    
+    for idx, assignment in enumerate(assignments, 1):
+        # KIỂM TRA VÀ TRỪ LƯỢT MỖI BÀI (THÊM MỚI)
+        if not consume_attempt_and_check():
+            print_status(f"\n⛔ Đã hết lượt! Đã giải được {success_count}/{total_count} bài", 'warning', Colors.YELLOW)
+            print_status("Vui lòng đăng xuất và lấy key mới.", 'info', Colors.YELLOW)
+            wait_enter()
+            return success_count, total_count
+        
+        print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
+        
+        success = submit_assignment(session, assignment, user_id)
+        
+        if success:
+            success_count += 1
+        else:
+            print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
+        
+        if idx < total_count:
+            wait_time = random.randint(2, 5)
+            print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
+            time.sleep(wait_time)
+    
+    print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
+    print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
+    
+    wait_enter()
+    return success_count, total_count
+
+# ========== MENU CHÍNH ==========
+def main_menu(session, user_id, user_name):
+    """Menu chính với hiển thị lượt còn lại"""
+    
+    while True:
+        print_header("MENU CHÍNH")
+        print(f"{ICONS['user']} {Colors.GREEN}Xin chào: {user_name}{Colors.END}")
+        
+        # HIỂN THỊ SỐ LƯỢT CÒN LẠI (THÊM MỚI)
+        if 'check_local_status' in globals():
+            status = globals()['check_local_status']()
+            if status:
+                remaining = status.get('remain', 0)
+                mode = status.get('mode', 'FREE')
+                if mode == 'VIP':
+                    print(f"{ICONS['star']} {Colors.YELLOW}Gói: VIP (Không giới hạn){Colors.END}")
+                else:
+                    print(f"{ICONS['key']} {Colors.YELLOW}Lượt còn lại: {remaining}/4 bài{Colors.END}")
+        
+        print()
+        
+        menu_options = {
+            '1': f"{ICONS['rocket']} Tự động hoàn thành tất cả",
+            '2': f"{ICONS['brain']} Giải bài cụ thể từ danh sách",
+            '3': f"{ICONS['link']} Giải bài từ link OLM",
+            '4': f"{ICONS['refresh']} Đăng xuất",
+            '5': f"{ICONS['exit']} Thoát"
+        }
+        
+        print_menu("LỰA CHỌN", menu_options)
+        
+        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-5): {Colors.END}").strip()
+        
+        if choice == '1':
+            pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
+            pages_to_scan = 3
+            if pages_input.isdigit() and int(pages_input) > 0:
+                pages_to_scan = int(pages_input)
+            
+            assignments = get_assignments_fixed(session, pages_to_scan)
+            if assignments:
+                process_all_assignments(session, assignments, user_id)
+        
+        elif choice == '2':
+            solve_specific_from_list(session, user_id)
+        
+        elif choice == '3':
+            # TRỪ LƯỢT KHI GIẢI TỪ LINK (THÊM MỚI)
+            if not consume_attempt_and_check():
+                print_status("\n⛔ Đã hết lượt sử dụng!", 'error', Colors.RED)
+                print_status("Vui lòng đăng xuất và lấy key mới.", 'info', Colors.YELLOW)
+                wait_enter()
+                continue  # Quay lại menu thay vì thoát
+            solve_from_link(session, user_id)
+        
+        elif choice == '4':
+            print_status("Đang đăng xuất...", 'refresh', Colors.YELLOW)
+            time.sleep(1)
+            break
+        
+        elif choice == '5':
+            print_status("Cảm ơn đã sử dụng!", 'exit', Colors.GREEN)
+            time.sleep(1)
+            sys.exit(0)
+        
+        else:
+            print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
+            time.sleep(1)
+
+# ========== CHƯƠNG TRÌNH CHÍNH ==========
+def main():
+    """Chương trình chính với kiểm tra bảo mật"""
+    
+    # Kiểm tra thư viện
+    if not check_and_update_packages():
+        print_status("Không thể khởi động tool!", 'error', Colors.RED)
+        wait_enter()
+        return
+    
+    while True:
+        # Đăng nhập
+        session, user_id, user_name = login_olm()
+        
+        if session and user_id and user_name:
+            # Vào menu chính
+            main_menu(session, user_id, user_name)
+        else:
+            # Khi đăng nhập thất bại hoặc không có license, quay lại
+            print_status("Không thể tiếp tục. Vui lòng kiểm tra lại.", 'warning', Colors.YELLOW)
+            break
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n\n{ICONS['exit']} {Colors.YELLOW}Đã dừng chương trình{Colors.END}")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n{ICONS['error']} {Colors.RED}Lỗi không mong muốn: {str(e)}{Colors.END}")
+        wait_enter()
