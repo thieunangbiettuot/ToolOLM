@@ -150,6 +150,7 @@ def save_lic(mode, n):
     return True
 
 def use_lic():
+    """Trừ 1 lượt - được gọi từ main.py"""
     d = load_lic()
     if not d:
         return False
@@ -157,11 +158,13 @@ def use_lic():
     d['remain'] -= 1
     
     if d['remain'] <= 0:
+        # Hết lượt → xóa license và account
         os.remove(LIC_FILE)
         if os.path.exists(ACC_FILE):
             os.remove(ACC_FILE)
-        return True
+        return True  # Trả về True để báo đã trừ xong (nhưng hết lượt)
     
+    # Còn lượt → lưu lại
     d['sig'] = sig(d)
     with open(LIC_FILE, 'w') as f:
         f.write(enc(d))
@@ -317,6 +320,17 @@ def run():
         except:
             pass
         
+        # Kiểm tra còn lượt không
+        lic = load_lic()
+        if not lic or lic.get('remain', 0) <= 0:
+            banner()
+            msg("⛔ HẾT LƯỢT!", C.R)
+            msg("Vui lòng lấy key mới để tiếp tục", C.Y)
+            time.sleep(2)
+            return False  # Quay lại màn hình activate
+        
+        return True
+        
     except Exception as e:
         msg(f"Lỗi: {e}", C.R)
         input("\nEnter...")
@@ -329,9 +343,16 @@ if __name__ == "__main__":
         
         while True:
             if activate():
-                run()
-                msg("Kết thúc phiên", C.C)
-                time.sleep(1)
+                if not run():
+                    # Hết lượt → quay lại activate để lấy key mới
+                    continue
+                else:
+                    # User thoát bình thường → hỏi tiếp tục
+                    msg("Kết thúc phiên", C.C)
+                    time.sleep(1)
+            else:
+                # Activate thất bại → thoát
+                break
     
     except KeyboardInterrupt:
         print(f"\n{C.Y}Bye!{C.E}")
