@@ -19,7 +19,11 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 
-ACCOUNT_FILE = "olm_account.dat"
+# Nhận file paths từ launcher (hoặc dùng mặc định)
+if 'LICENSE_FILE' not in globals():
+    LICENSE_FILE = "olm_license.dat"
+if 'ACCOUNT_FILE' not in globals():
+    ACCOUNT_FILE = "olm_account.dat"
 
 def check_account_lock(username):
     """Kiểm tra và khóa tài khoản với key"""
