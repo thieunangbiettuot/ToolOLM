@@ -96,7 +96,7 @@ def hw():
 def sig(d):
     return hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}{d['dev']}{d['hw']}".encode()).hexdigest()[:16]
 
-# ========== LICENSE ==========
+# ========== LICENSE (KEY VĨNH VIỄN) ==========
 def load():
     if not os.path.exists(LIC):
         return None
@@ -107,11 +107,11 @@ def load():
         if not d or d.get('sig') != sig(d):
             return None
         
-        # KEY VĨNH VIỄN - chỉ check expire
+        # Check expire
         if datetime.strptime(d['expire'], "%d/%m/%Y").date() != datetime.now().date():
             return None
         
-        # Check device (nhưng KHÔNG XÓA key)
+        # Check device (KHÔNG XÓA KEY khi đổi account)
         if d['ip'] != ip() or d['dev'] != dev() or d['hw'] != hw():
             msg("Thay đổi thiết bị! Lấy key mới.", '⚠', C.Y)
             return None
@@ -145,7 +145,6 @@ def use():
     
     d['remain'] -= 1
     
-    # HẾT LƯỢT - XÓA KEY
     if d['remain'] <= 0:
         try:
             os.remove(LIC)
@@ -153,7 +152,6 @@ def use():
             pass
         return True
     
-    # CẬP NHẬT
     d['sig'] = sig(d)
     try:
         with open(LIC, 'w') as f:
@@ -171,7 +169,6 @@ def gen_key():
 def activate():
     lic = load()
     
-    # Có key hợp lệ
     if lic and lic.get('remain', 0) > 0:
         banner()
         msg(f"License: {lic['mode']}", '✓', C.G)
@@ -179,7 +176,6 @@ def activate():
         time.sleep(1)
         return True
     
-    # Hết key → Nhập mới
     banner()
     msg(f"Device: {dev()}", '🔑', C.W)
     msg(f"IP: {ip()}", '🌐', C.W)
@@ -272,7 +268,6 @@ def run():
         msg("OK ✓", '📥', C.G)
         time.sleep(0.5)
         
-        # Global
         g = globals().copy()
         g.update({
             '__name__': '__main__',
