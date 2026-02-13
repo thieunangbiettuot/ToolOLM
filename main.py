@@ -1,24 +1,33 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-OLM MASTER - AUTO SOLVER
-Professional Educational Assistant
+╔══════════════════════════════════════════════════════════════╗
+║                    OLM MASTER - AUTO SOLVER                  ║
+║                    Created by: Tuấn Anh                      ║
+╚══════════════════════════════════════════════════════════════╝
 """
 
-import os, sys, time, json, random, requests, re, subprocess, hashlib
+import os
+import sys
+import time
+import json
+import random
+import requests
+import re
+import subprocess
 from bs4 import BeautifulSoup
 from datetime import datetime
 
-LICENSE_FILE = "olm_license.dat"
+
 ACCOUNT_FILE = "olm_account.dat"
 
 def check_account_lock(username):
-    """Kiểm tra tài khoản đã khóa chưa"""
+    """Kiểm tra và khóa tài khoản với key"""
     if not os.path.exists(ACCOUNT_FILE):
         try:
             with open(ACCOUNT_FILE, 'w') as f:
                 json.dump({'user': username, 'time': datetime.now().strftime("%d/%m/%Y %H:%M")}, f)
-            print(f"  🔐 Đã liên kết key với: {username}")
+            print_status(f"🔐 Đã liên kết key với tài khoản: {username}", 'success', Colors.GREEN)
             return True
         except:
             return False
@@ -30,18 +39,26 @@ def check_account_lock(username):
             if data.get('user') == username:
                 return True
             else:
-                print(f"  ❌ KEY ĐÃ LIÊN KẾT VỚI: {data.get('user')}")
-                print(f"  ⚠️  Bạn đang nhập: {username}")
-                print(f"  ℹ️  Dùng đúng tài khoản hoặc chọn [3] Đổi tài khoản")
+                print()
+                print_status("⛔ KEY ĐÃ LIÊN KẾT VỚI TÀI KHOẢN KHÁC!", 'error', Colors.RED + Colors.BOLD)
+                print_status(f"Tài khoản đã liên kết: {data.get('user')}", 'warning', Colors.YELLOW)
+                print_status(f"Tài khoản bạn nhập: {username}", 'info', Colors.CYAN)
+                print()
+                print_status("💡 Giải pháp:", 'info', Colors.GREEN)
+                print_status("  1. Dùng đúng tài khoản đã liên kết", 'info', Colors.WHITE)
+                print_status("  2. Chọn [3] Đổi tài khoản trong menu", 'info', Colors.WHITE)
+                print_status("  3. Hoặc lấy key mới", 'info', Colors.WHITE)
                 return False
         except:
             return False
 
 def consume_one_attempt():
+    """Hàm wrapper để trừ lượt"""
     if 'consume_one_attempt' in globals():
         return globals()['consume_one_attempt']()
     return True
 
+# ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
     GREEN = '\033[92m'
     YELLOW = '\033[93m'
@@ -93,19 +110,15 @@ def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def print_centered(text, color=Colors.WHITE, width=60):
-    """In text căn giữa responsive"""
-    try:
-        width = min(os.get_terminal_size().columns - 4, 70)
-    except:
-        width = 60
+    """In text căn giữa"""
     padding = (width - len(text.strip())) // 2
     print(f"{color}{' ' * padding}{text}{Colors.END}")
 
 def print_line(char='═', color=Colors.CYAN, width=60):
     """In đường kẻ responsive"""
     try:
-        term_width = os.get_terminal_size().columns
-        width = min(term_width - 4, 70)
+        w = os.get_terminal_size().columns
+        width = min(w - 4, 70)
     except:
         width = 60
     print(f"{color}{char * width}{Colors.END}")
@@ -268,9 +281,9 @@ def login_olm():
         wait_enter()
         return None, None, None
     
-    # Kiểm tra account lock
+    # Kiểm tra account lock (1 key = 1 account)
     if not check_account_lock(username):
-        input("\nNhấn Enter...")
+        wait_enter()
         return None, None, None
     
     session = requests.Session()
@@ -1276,7 +1289,7 @@ def solve_from_link(session, user_id):
 
 # ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH ==========
 def solve_specific_from_list(session, user_id):
-    """Giải bài cụ thể từ danh sách"""
+    """Giải bài cụ thể từ danh sách - HỖ TRỢ 0, 1, VÀ 1,3,5"""
     print_header("GIẢI BÀI CỤ THỂ")
     
     # Hỏi số trang
@@ -1292,20 +1305,124 @@ def solve_specific_from_list(session, user_id):
     
     display_assignments_table(assignments)
     
-    # Chọn bài để giải
+    # Chọn bài
+    print()
+    print(f"{Colors.CYAN}╔════════════════════════════════════════════════════╗{Colors.END}")
+    print(f"{Colors.CYAN}║  {Colors.YELLOW}Cách chọn:{Colors.END}")
+    print(f"{Colors.CYAN}║  {Colors.GREEN}• Nhập 0{Colors.END}       → Giải TẤT CẢ bài")
+    print(f"{Colors.CYAN}║  {Colors.GREEN}• Nhập 1{Colors.END}       → Giải bài số 1")
+    print(f"{Colors.CYAN}║  {Colors.GREEN}• Nhập 1,3,5{Colors.END}   → Giải bài 1, 3 và 5")
+    print(f"{Colors.CYAN}╚════════════════════════════════════════════════════╝{Colors.END}")
+    
     try:
-        selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (1-{len(assignments)}): {Colors.END}").strip()
-        if selection.isdigit():
+        selection = input(f"\n{Colors.YELLOW}{ICONS['question']} Nhập lựa chọn: {Colors.END}").strip()
+        
+        if selection == '0':
+            # Giải TẤT CẢ bài
+            confirm = input(f"\n{Colors.YELLOW}⚠️  Xác nhận giải TẤT CẢ {len(assignments)} bài? (y/n): {Colors.END}").strip().lower()
+            
+            if confirm == 'y':
+                print_header("ĐANG GIẢI TẤT CẢ BÀI")
+                success_count = 0
+                
+                for idx, assignment in enumerate(assignments, 1):
+                    # Trừ lượt
+                    if not consume_one_attempt():
+                        print()
+                        print_status(f"⛔ Đã hết lượt! Giải được {success_count}/{len(assignments)} bài", 'warning', Colors.YELLOW)
+                        wait_enter()
+                        sys.exit(0)
+                    
+                    print(f"\n{Colors.YELLOW}{'━' * 60}{Colors.END}")
+                    print(f"{Colors.CYAN}📊 Bài {idx}/{len(assignments)}{Colors.END}")
+                    print(f"{Colors.YELLOW}{'━' * 60}{Colors.END}")
+                    
+                    if submit_assignment(session, assignment, user_id):
+                        success_count += 1
+                    
+                    # Delay giữa các bài
+                    if idx < len(assignments):
+                        wait_time = random.randint(3, 6)
+                        print_status(f"Chờ {wait_time}s trước bài tiếp theo...", 'clock', Colors.YELLOW)
+                        time.sleep(wait_time)
+                
+                print()
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                print_status(f"✅ HOÀN THÀNH {success_count}/{len(assignments)} bài!", 'success', Colors.GREEN + Colors.BOLD)
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                wait_enter()
+                return True
+        
+        elif ',' in selection:
+            # Giải NHIỀU bài: 1,3,5
+            nums = []
+            for x in selection.split(','):
+                x = x.strip()
+                if x.isdigit():
+                    num = int(x)
+                    if 1 <= num <= len(assignments):
+                        nums.append(num)
+            
+            if not nums:
+                print_status("Không có số bài hợp lệ!", 'error', Colors.RED)
+                wait_enter()
+                return False
+            
+            # Xác nhận
+            print(f"\n{Colors.CYAN}Sẽ giải {len(nums)} bài: {', '.join(map(str, nums))}{Colors.END}")
+            confirm = input(f"{Colors.YELLOW}Xác nhận? (y/n): {Colors.END}").strip().lower()
+            
+            if confirm == 'y':
+                print_header(f"ĐANG GIẢI {len(nums)} BÀI")
+                success_count = 0
+                
+                for i, num in enumerate(nums, 1):
+                    # Trừ lượt
+                    if not consume_one_attempt():
+                        print()
+                        print_status(f"⛔ Hết lượt! Giải được {success_count}/{len(nums)} bài", 'warning', Colors.YELLOW)
+                        wait_enter()
+                        sys.exit(0)
+                    
+                    print(f"\n{Colors.YELLOW}{'━' * 60}{Colors.END}")
+                    print(f"{Colors.CYAN}📊 Bài #{num} ({i}/{len(nums)}){Colors.END}")
+                    print(f"{Colors.YELLOW}{'━' * 60}{Colors.END}")
+                    
+                    if submit_assignment(session, assignments[num-1], user_id):
+                        success_count += 1
+                    
+                    if i < len(nums):
+                        time.sleep(random.randint(3, 5))
+                
+                print()
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                print_status(f"✅ HOÀN THÀNH {success_count}/{len(nums)} bài!", 'success', Colors.GREEN + Colors.BOLD)
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                wait_enter()
+                return True
+        
+        elif selection.isdigit():
+            # Giải 1 BÀI
             idx = int(selection) - 1
             if 0 <= idx < len(assignments):
+                # Trừ lượt
+                if not consume_one_attempt():
+                    print_status("\n⛔ Đã hết lượt!", 'error', Colors.RED)
+                    wait_enter()
+                    sys.exit(0)
+                
                 success = submit_assignment(session, assignments[idx], user_id)
+                wait_enter()
                 return success
             else:
-                print_status("Số bài không hợp lệ", 'error', Colors.RED)
+                print_status("Số bài không hợp lệ!", 'error', Colors.RED)
         else:
-            print_status("Vui lòng nhập số", 'error', Colors.RED)
-    except:
-        print_status("Lỗi chọn bài", 'error', Colors.RED)
+            print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
+    
+    except KeyboardInterrupt:
+        print_status("\nĐã hủy", 'warning', Colors.YELLOW)
+    except Exception as e:
+        print_status(f"Lỗi: {e}", 'error', Colors.RED)
     
     wait_enter()
     return False
@@ -1352,42 +1469,40 @@ def main_menu(session, user_id, user_name):
         print()
         
         menu_options = {
-            '1': f"{ICONS['brain']} Giải bài cụ thể từ danh sách",
+            '1': f"{ICONS['brain']} Giải bài cụ thể (Hỗ trợ: 0=tất cả, 1,3,5=nhiều bài)",
             '2': f"{ICONS['link']} Giải bài từ link OLM",
-            '3': f"{ICONS['refresh']} Đổi tài khoản",
+            '3': f"{ICONS['refresh']} Đổi tài khoản (xóa liên kết)",
             '4': f"{ICONS['exit']} Thoát"
         }
         
         print_menu("LỰA CHỌN", menu_options)
         
-        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-5): {Colors.END}").strip()
+        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-4): {Colors.END}").strip()
         
         if choice == '1':
-            # Tự động hoàn thành tất cả
-            pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
-            pages_to_scan = 3
-            if pages_input.isdigit() and int(pages_input) > 0:
-                pages_to_scan = int(pages_input)
-            
-            assignments = get_assignments_fixed(session, pages_to_scan)
-            if assignments:
-                process_all_assignments(session, assignments, user_id)
-        
-        elif choice == '2':
-            # Giải bài cụ thể từ danh sách
+            # Giải bài cụ thể (HỖ TRỢ 0 và 1,3,5)
             solve_specific_from_list(session, user_id)
         
-        elif choice == '3':
-            # Giải bài từ link
+        elif choice == '2':
+            # Giải từ link
+            if not consume_one_attempt():
+                print_status("\n⛔ Đã hết lượt!", 'error', Colors.RED)
+                print_status("Đang quay về launcher...", 'info', Colors.YELLOW)
+                time.sleep(1)
+                sys.exit(0)
             solve_from_link(session, user_id)
         
-        elif choice == '4':
-            print_status("Đang đăng xuất...", 'refresh', Colors.YELLOW)
+        elif choice == '3':
+            # Đổi tài khoản
+            if os.path.exists('olm_account.dat'):
+                os.remove('olm_account.dat')
+                print_status("✓ Đã xóa liên kết tài khoản", 'success', Colors.GREEN)
+            print_status("Đang đăng xuất để đổi tài khoản...", 'info', Colors.CYAN)
             time.sleep(1)
             break
         
-        elif choice == '5':
-            print_status("Cảm ơn đã sử dụng!", 'exit', Colors.GREEN)
+        elif choice == '4':
+            print_status("Cảm ơn đã sử dụng! 👋", 'exit', Colors.GREEN)
             time.sleep(1)
             sys.exit(0)
         
