@@ -9,86 +9,58 @@ API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
 
-# ========== LƯU FILE Ở APPDATA (TẤT CẢ HỆ ĐIỀU HÀNH) ==========
-def get_data_path():
-    """Lấy thư mục ẩn tùy theo OS"""
-    system = sys.platform
-    
-    if system == 'win32':  # Windows
+# ========== LƯU FILE (TẤT CẢ HỆ ĐIỀU HÀNH) ==========
+def get_data_dir():
+    p = sys.platform
+    if p == 'win32':
         base = os.getenv('LOCALAPPDATA') or os.getenv('APPDATA') or os.path.expanduser('~')
-        p = Path(base) / 'Microsoft' / 'Windows' / 'INetCache' / 'IE'
-    
-    elif system == 'darwin':  # macOS
-        p = Path.home() / 'Library' / 'Application Support' / 'com.apple.Safari'
-    
-    elif system.startswith('linux'):  # Linux
-        if 'ANDROID_ROOT' in os.environ or 'ANDROID_DATA' in os.environ:  # Android (Termux)
-            base = os.getenv('HOME') or '/data/data/com.termux/files/home'
-            p = Path(base) / '.cache' / 'google-chrome'
-        else:  # Linux desktop
-            p = Path.home() / '.cache' / 'mozilla' / 'firefox'
-    
-    elif 'ios' in system.lower() or system == 'darwin' and hasattr(sys, 'getandroidapilevel'):  # iOS
-        base = os.path.expanduser('~')
-        p = Path(base) / 'Library' / 'Caches' / 'WebKit'
-    
-    else:  # Fallback
-        p = Path.home() / '.config' / 'systemd'
+        d = Path(base) / 'Microsoft' / 'Windows' / 'INetCache' / 'IE'
+    elif p == 'darwin':
+        d = Path.home() / 'Library' / 'Application Support' / 'com.apple.Safari'
+    elif p.startswith('linux'):
+        if 'ANDROID_ROOT' in os.environ:
+            d = Path(os.getenv('HOME', '/data/data/com.termux/files/home')) / '.cache' / 'google-chrome'
+        else:
+            d = Path.home() / '.cache' / 'mozilla' / 'firefox'
+    else:
+        d = Path.home() / '.config' / 'systemd'
     
     try:
-        p.mkdir(parents=True, exist_ok=True)
+        d.mkdir(parents=True, exist_ok=True)
     except:
-        p = Path.home() / '.cache'
-        p.mkdir(parents=True, exist_ok=True)
+        d = Path.home() / '.cache'
+        d.mkdir(parents=True, exist_ok=True)
     
-    return str(p)
+    return str(d)
 
-DATA = get_data_path()
+DATA = get_data_dir()
 LIC = os.path.join(DATA, '.sysconf')
-ACC = os.path.join(DATA, '.usrdata')
 
-# ========== MÃ HÓA MẠNH ==========
-KEY = b'OLM_ULTRA_SECRET_2026_EXTREME_PROTECTION_SYSTEM'
+# ========== MÃ HÓA ==========
+KEY = b'OLM_SECRET_KEY_2026_ULTRA_PROTECTION'
 
 def enc(obj):
-    """Mã hóa object -> chuỗi rác"""
-    txt = json.dumps(obj, separators=(',', ':')).encode('utf-8')
-    # XOR encryption
+    txt = json.dumps(obj, separators=(',', ':')).encode()
     xor = bytearray(txt[i] ^ KEY[i % len(KEY)] for i in range(len(txt)))
-    # Base85 encode (tạo ký tự rác)
-    b85 = base64.b85encode(bytes(xor)).decode('ascii')
-    # Thêm checksum
+    b85 = base64.b85encode(bytes(xor)).decode()
     chk = hashlib.sha256(b85.encode()).hexdigest()[:12]
-    # Thêm noise
     noise = hashlib.md5(chk.encode()).hexdigest()[:8]
     return f"{noise}{chk}{b85}{noise[::-1]}"
 
 def dec(s):
-    """Giải mã chuỗi -> object"""
     try:
-        # Remove noise
-        noise_len = 8
-        s = s[noise_len:-noise_len]
-        # Extract checksum
-        chk = s[:12]
-        b85 = s[12:]
-        # Verify checksum
+        s = s[8:-8]
+        chk, b85 = s[:12], s[12:]
         if hashlib.sha256(b85.encode()).hexdigest()[:12] != chk:
             return None
-        # Decode Base85
         xor = base64.b85decode(b85)
-        # XOR decrypt
         txt = bytes(xor[i] ^ KEY[i % len(KEY)] for i in range(len(xor)))
-        return json.loads(txt.decode('utf-8'))
+        return json.loads(txt)
     except:
         return None
 
 # ========== MÀU ==========
-C = type('C', (), {
-    'R': '\033[91m', 'G': '\033[92m', 'Y': '\033[93m',
-    'B': '\033[94m', 'C': '\033[96m', 'W': '\033[97m', 
-    'P': '\033[95m', 'E': '\033[0m'
-})()
+C = type('C', (), {'R':'\033[91m','G':'\033[92m','Y':'\033[93m','B':'\033[94m','C':'\033[96m','W':'\033[97m','E':'\033[0m'})()
 
 def cls():
     os.system('cls' if os.name == 'nt' else 'clear')
@@ -103,7 +75,6 @@ def banner():
     cls()
     print(f"\n{C.C}{'═' * w()}{C.E}")
     print(f"{C.B}{'OLM MASTER PRO v3.0'.center(w())}{C.E}")
-    print(f"{C.P}{'Advanced AI Assistant'.center(w())}{C.E}")
     print(f"{C.C}{'═' * w()}{C.E}\n")
 
 def msg(t, i='•', c=C.W):
@@ -111,83 +82,52 @@ def msg(t, i='•', c=C.W):
 
 # ========== HỆ THỐNG ==========
 def dev():
-    try:
-        return hashlib.md5(f"{socket.gethostname()}{os.name}{uuid.getnode()}".encode()).hexdigest()[:16]
-    except:
-        return "DEV_UNKNOWN"
+    return hashlib.md5(f"{socket.gethostname()}{os.name}{uuid.getnode()}".encode()).hexdigest()[:16]
 
 def ip():
     try:
-        return requests.get('https://api.ipify.org', timeout=5).text.strip()
+        return requests.get('https://api.ipify.org', timeout=5).text
     except:
         return "0.0.0.0"
 
 def hw():
-    try:
-        return hashlib.sha256(f"{uuid.getnode()}{sys.platform}{os.name}".encode()).hexdigest()[:20]
-    except:
-        return "HW_UNKNOWN"
+    return hashlib.sha256(f"{uuid.getnode()}{sys.platform}".encode()).hexdigest()[:20]
 
 def sig(d):
-    """Tạo chữ ký"""
-    s = f"{d.get('mode')}{d.get('expire')}{d.get('ip')}{d.get('dev')}{d.get('hw')}"
-    return hashlib.sha256(s.encode()).hexdigest()[:16]
+    return hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}{d['dev']}{d['hw']}".encode()).hexdigest()[:16]
 
 # ========== LICENSE ==========
-def clean():
-    """Xóa tất cả file data"""
-    for f in [LIC, ACC]:
-        try:
-            if os.path.exists(f):
-                os.remove(f)
-        except:
-            pass
-
 def load():
-    """Load license từ file mã hóa"""
     if not os.path.exists(LIC):
         return None
     try:
-        with open(LIC, 'r') as f:
+        with open(LIC) as f:
             d = dec(f.read())
         
-        if not d:
-            clean()
+        if not d or d.get('sig') != sig(d):
             return None
         
-        # Verify signature
-        if d.get('sig') != sig(d):
-            msg("License bị sửa đổi!", '⚠', C.R)
-            clean()
+        # KEY VĨNH VIỄN - chỉ check expire
+        if datetime.strptime(d['expire'], "%d/%m/%Y").date() != datetime.now().date():
             return None
         
-        # Check expire
-        exp = datetime.strptime(d.get('expire'), "%d/%m/%Y")
-        if exp.date() != datetime.now().date():
-            clean()
+        # Check device (nhưng KHÔNG XÓA key)
+        if d['ip'] != ip() or d['dev'] != dev() or d['hw'] != hw():
+            msg("Thay đổi thiết bị! Lấy key mới.", '⚠', C.Y)
             return None
         
-        # Check device
-        if d.get('ip') == ip() and d.get('dev') == dev() and d.get('hw') == hw():
-            if d.get('remain', 0) > 0:
-                return d
+        if d.get('remain', 0) > 0:
+            return d
         
-        clean()
         return None
     except:
-        clean()
         return None
 
 def save(mode, n):
-    """Save license với mã hóa"""
     d = {
-        'mode': mode,
-        'remain': n,
+        'mode': mode, 'remain': n,
         'expire': datetime.now().strftime("%d/%m/%Y"),
-        'ip': ip(),
-        'dev': dev(),
-        'hw': hw(),
-        'time': datetime.now().strftime("%d/%m/%Y %H:%M")
+        'ip': ip(), 'dev': dev(), 'hw': hw()
     }
     d['sig'] = sig(d)
     
@@ -199,17 +139,21 @@ def save(mode, n):
         return False
 
 def use():
-    """Trừ 1 lượt"""
     d = load()
     if not d:
         return False
     
     d['remain'] -= 1
     
+    # HẾT LƯỢT - XÓA KEY
     if d['remain'] <= 0:
-        clean()
+        try:
+            os.remove(LIC)
+        except:
+            pass
         return True
     
+    # CẬP NHẬT
     d['sig'] = sig(d)
     try:
         with open(LIC, 'w') as f:
@@ -219,21 +163,23 @@ def use():
         return False
 
 # ========== KEY ==========
-def key():
-    """Tạo key phức tạp"""
+def gen_key():
     h = hashlib.sha256(f"{dev()}{hw()}{datetime.now():%d%m%Y}".encode()).hexdigest()
     return f"OLM-{datetime.now():%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
 # ========== KÍCH HOẠT ==========
-def act():
+def activate():
     lic = load()
+    
+    # Có key hợp lệ
     if lic and lic.get('remain', 0) > 0:
         banner()
         msg(f"License: {lic['mode']}", '✓', C.G)
         msg(f"Còn: {lic['remain']} lượt", '💎', C.C)
-        time.sleep(1.5)
+        time.sleep(1)
         return True
     
+    # Hết key → Nhập mới
     banner()
     msg(f"Device: {dev()}", '🔑', C.W)
     msg(f"IP: {ip()}", '🌐', C.W)
@@ -246,27 +192,26 @@ def act():
     ch = input(f"{C.Y}  Chọn: {C.E}").strip()
     
     if ch == '1':
-        return free()
+        return get_free()
     elif ch == '2':
-        return vip()
+        return get_vip()
     elif ch == '0':
         sys.exit(0)
     else:
         msg("Không hợp lệ!", '❌', C.R)
         time.sleep(1)
-        return act()
+        return activate()
 
-def free():
+def get_free():
     banner()
-    k = key()
+    k = gen_key()
     msg("Tạo link...", '⏳', C.C)
     
     try:
         url = f"{URL_BLOG}?ma={k}"
         api = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={requests.utils.quote(url)}"
         r = requests.get(api, timeout=10)
-        res = r.json()
-        link = res.get('shortenedUrl') if res.get('status') == 'success' else url
+        link = r.json().get('shortenedUrl') if r.json().get('status') == 'success' else url
     except:
         link = f"{URL_BLOG}?ma={k}"
     
@@ -281,10 +226,9 @@ def free():
         if inp == k or inp.upper() == "ADMIN_VIP_2026":
             msg("Xác thực...", '⏳', C.C)
             time.sleep(1)
-            is_vip = inp.upper() == "ADMIN_VIP_2026"
             
-            if save("VIP" if is_vip else "FREE", 999999 if is_vip else 4):
-                msg("Thành công!", '✓', C.G)
+            if save("VIP" if inp.upper() == "ADMIN_VIP_2026" else "FREE", 999999 if inp.upper() == "ADMIN_VIP_2026" else 4):
+                msg("OK!", '✓', C.G)
                 time.sleep(1)
                 return True
         else:
@@ -295,16 +239,16 @@ def free():
     time.sleep(1)
     return False
 
-def vip():
+def get_vip():
     banner()
     print(f"{C.C}{'─' * w()}{C.E}")
-    print(f"{C.P}{'👑 VIP ACTIVATION 👑'.center(w())}{C.E}")
+    print(f"{C.G}{'VIP ACTIVATION'.center(w())}{C.E}")
     print(f"{C.C}{'─' * w()}{C.E}\n")
     
     inp = input(f"{C.Y}  Mã VIP: {C.E}").strip()
     
     if inp.upper() in ["OLM_VIP_2026", "PREMIUM_2026"]:
-        msg("Xác thực VIP...", '⏳', C.C)
+        msg("Xác thực...", '⏳', C.C)
         time.sleep(1)
         
         if save("VIP", 999999):
@@ -312,40 +256,35 @@ def vip():
             time.sleep(1)
             return True
     
-    msg("Mã sai!", '❌', C.R)
+    msg("Sai!", '❌', C.R)
     time.sleep(1)
     return False
 
-# ========== LOAD TOOL ==========
+# ========== LOAD ==========
 def run():
     banner()
-    msg("Kết nối GitHub...", '🌐', C.C)
+    msg("Kết nối...", '🌐', C.C)
     
     try:
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
         
-        msg("Tải OK ✓", '📥', C.G)
-        time.sleep(0.5)
-        msg("Khởi động...", '🚀', C.B)
+        msg("OK ✓", '📥', C.G)
         time.sleep(0.5)
         
-        # Global scope
+        # Global
         g = globals().copy()
         g.update({
             '__name__': '__main__',
             'consume_one_attempt': use,
             'check_local_status': load,
             'LICENSE_FILE': LIC,
-            'ACCOUNT_FILE': ACC,
         })
         
         exec(r.text, g)
         
     except Exception as e:
         msg(f"Lỗi: {e}", '❌', C.R)
-        import traceback
-        traceback.print_exc()
         input("\nEnter...")
         sys.exit(1)
 
@@ -353,7 +292,7 @@ def run():
 if __name__ == "__main__":
     try:
         while True:
-            if act():
+            if activate():
                 run()
                 msg("Kết thúc", '✓', C.C)
                 time.sleep(1)
