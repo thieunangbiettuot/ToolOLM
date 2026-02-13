@@ -3,7 +3,7 @@
 """
 OLM Master Pro - Launcher & License Manager
 """
-
+import os
 import os, sys, time, json, requests, hashlib, uuid, socket, base64, subprocess, tempfile
 from datetime import datetime
 from pathlib import Path
