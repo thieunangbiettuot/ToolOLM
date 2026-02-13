@@ -3,7 +3,7 @@
 """OLM Master Pro - Main Tool v3.0"""
 
 
-
+import os
 # ========== NHẬN BIẾN TỪ LAUNCHER ==========
 LICENSE_FILE = os.getenv('OLM_LICENSE_FILE', 'olm_license.dat')
 ACCOUNT_FILE = os.getenv('OLM_ACCOUNT_FILE', 'olm_account.dat')
