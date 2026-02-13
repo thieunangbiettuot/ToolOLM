@@ -5,16 +5,53 @@ OLM MASTER PRO - License Activation System v3.0
 Advanced Educational Assistant with Smart Security
 """
 
-import os, sys, time, json, requests, hashlib, uuid, socket
+import os, sys, time, json, requests, hashlib, uuid, socket, base64
 from datetime import datetime, timedelta
+from pathlib import Path
 
 # ========== CẤU HÌNH ==========
 API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN_TOOL = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
 
-LICENSE_FILE = "olm_license.dat"
-ACCOUNT_FILE = "olm_account.dat"
+# Lưu file ở chỗ KHÓ TÌM
+def get_data_dir():
+    """Lấy thư mục lưu data (ẩn)"""
+    if os.name == 'nt':  # Windows
+        base = os.environ.get('APPDATA') or os.path.expanduser('~')
+        data_dir = os.path.join(base, '.cache', 'Microsoft', 'EdgeUpdate')
+    else:  # Linux/Mac
+        base = os.path.expanduser('~')
+        data_dir = os.path.join(base, '.cache', 'fontconfig')
+    
+    os.makedirs(data_dir, exist_ok=True)
+    return data_dir
+
+DATA_DIR = get_data_dir()
+LICENSE_FILE = os.path.join(DATA_DIR, '.sysconf.dat')
+ACCOUNT_FILE = os.path.join(DATA_DIR, '.userdata.dat')
+
+# Mã hóa key (XOR + Base64)
+ENCRYPT_KEY = b'OLM_MASTER_PRO_2026_SECRET_KEY_ULTRA_SECURE'
+
+def encrypt(data):
+    """Mã hóa dữ liệu"""
+    text = json.dumps(data).encode()
+    encrypted = bytearray()
+    for i, byte in enumerate(text):
+        encrypted.append(byte ^ ENCRYPT_KEY[i % len(ENCRYPT_KEY)])
+    return base64.b85encode(bytes(encrypted)).decode()
+
+def decrypt(encrypted_text):
+    """Giải mã dữ liệu"""
+    try:
+        encrypted = base64.b85decode(encrypted_text.encode())
+        decrypted = bytearray()
+        for i, byte in enumerate(encrypted):
+            decrypted.append(byte ^ ENCRYPT_KEY[i % len(ENCRYPT_KEY)])
+        return json.loads(bytes(decrypted).decode())
+    except:
+        return None
 
 # ========== MÀU SẮC ==========
 class C:
@@ -85,7 +122,12 @@ def load_license():
         return None
     try:
         with open(LICENSE_FILE, 'r') as f:
-            data = json.load(f)
+            encrypted = f.read()
+        
+        data = decrypt(encrypted)
+        if not data:
+            cleanup_license()
+            return None
         
         # Check hết hạn
         expire = datetime.strptime(data.get('expire'), "%d/%m/%Y")
@@ -140,8 +182,9 @@ def save_license(mode, remain):
     data['signature'] = generate_key_signature(data)
     
     try:
+        encrypted = encrypt(data)
         with open(LICENSE_FILE, 'w') as f:
-            json.dump(data, f, indent=2)
+            f.write(encrypted)
         return True
     except:
         return False
@@ -162,8 +205,9 @@ def consume_attempt():
     data['signature'] = generate_key_signature(data)
     
     try:
+        encrypted = encrypt(data)
         with open(LICENSE_FILE, 'w') as f:
-            json.dump(data, f, indent=2)
+            f.write(encrypted)
         return True
     except:
         return False
@@ -425,22 +469,29 @@ def load_tool():
         msg("Đang khởi động OLM Master Pro...", '🚀', C.B)
         time.sleep(1)
         
-        # Truyền hàm
-        exec_globals = {
+        # Truyền hàm vào global scope của main.py
+        exec_globals = globals().copy()
+        exec_globals.update({
             '__name__': '__main__',
             'consume_one_attempt': consume_attempt,
             'check_local_status': load_license,
-        }
+            'LICENSE_FILE': LICENSE_FILE,
+            'ACCOUNT_FILE': ACCOUNT_FILE,
+        })
         
+        # Chạy main.py
         exec(resp.text, exec_globals)
         
-    except requests.exceptions.RequestException:
+    except requests.exceptions.RequestException as e:
         msg("❌ Không thể kết nối GitHub!", '✗', C.R)
-        msg("Kiểm tra kết nối Internet của bạn", 'ℹ', C.Y)
+        msg(f"Chi tiết: {e}", 'ℹ', C.Y)
+        msg("Kiểm tra kết nối Internet", 'ℹ', C.Y)
         input("\nNhấn Enter...")
         sys.exit(1)
     except Exception as e:
         msg(f"❌ Lỗi: {e}", '✗', C.R)
+        import traceback
+        traceback.print_exc()
         input("\nNhấn Enter...")
         sys.exit(1)
 
