@@ -2,16 +2,25 @@
 # -*- coding: utf-8 -*-
 """OLM Master Pro - Main Tool v3.0"""
 
-
+# ========== IMPORT THƯ VIỆN ==========
 import os
+import sys
+import time
+import json
+import random
+import requests
+import re
+import subprocess
+import hashlib
+import base64
+from bs4 import BeautifulSoup
+from datetime import datetime
+
 # ========== NHẬN BIẾN TỪ LAUNCHER ==========
 LICENSE_FILE = os.getenv('OLM_LICENSE_FILE', 'olm_license.dat')
 ACCOUNT_FILE = os.getenv('OLM_ACCOUNT_FILE', 'olm_account.dat')
 
-# Import base64 cho mã hóa
-import base64
-
-# Hàm mã hóa (copy từ launcher)
+# ========== MÃ HÓA (copy từ launcher) ==========
 KEY = b'OLM_ULTRA_SECRET_2026_PROTECTION'
 
 def enc(obj):
@@ -53,20 +62,8 @@ def clear_acc():
         os.remove(ACCOUNT_FILE)
 
 def consume_one_attempt():
-    """Wrapper trừ lượt"""
-    # Sẽ được implement bởi launcher
+    """Wrapper trừ lượt - được gọi từ launcher"""
     return True
-
-import os
-import sys
-import time
-import json
-import random
-import requests
-import re
-import subprocess
-from bs4 import BeautifulSoup
-from datetime import datetime
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -165,7 +162,6 @@ def check_and_update_packages():
     
     for package in required_packages:
         try:
-            # Sửa đổi: beautifulsoup4 cần import là bs4, nhưng cài đặt qua pip là beautifulsoup4
             if package == 'beautifulsoup4':
                 __import__('bs4')
             else:
