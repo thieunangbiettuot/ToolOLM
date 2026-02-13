@@ -1,6 +1,61 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """OLM Master Pro - Main Tool v3.0"""
+
+
+# ========== NHẬN BIẾN TỪ LAUNCHER ==========
+LICENSE_FILE = os.getenv('OLM_LICENSE_FILE', 'olm_license.dat')
+ACCOUNT_FILE = os.getenv('OLM_ACCOUNT_FILE', 'olm_account.dat')
+
+# Import base64 cho mã hóa
+import base64
+
+# Hàm mã hóa (copy từ launcher)
+KEY = b'OLM_ULTRA_SECRET_2026_PROTECTION'
+
+def enc(obj):
+    txt = json.dumps(obj, separators=(',', ':')).encode()
+    xor = bytearray(txt[i] ^ KEY[i % len(KEY)] for i in range(len(txt)))
+    b85 = base64.b85encode(bytes(xor)).decode()
+    chk = hashlib.sha256(b85.encode()).hexdigest()[:12]
+    noise = hashlib.md5(chk.encode()).hexdigest()[:8]
+    return f"{noise}{chk}{b85}{noise[::-1]}"
+
+def dec(s):
+    try:
+        s = s[8:-8]
+        chk, b85 = s[:12], s[12:]
+        if hashlib.sha256(b85.encode()).hexdigest()[:12] != chk:
+            return None
+        xor = base64.b85decode(b85)
+        txt = bytes(xor[i] ^ KEY[i % len(KEY)] for i in range(len(xor)))
+        return json.loads(txt)
+    except:
+        return None
+
+def load_acc():
+    if not os.path.exists(ACCOUNT_FILE):
+        return None
+    try:
+        with open(ACCOUNT_FILE) as f:
+            return dec(f.read())
+    except:
+        return None
+
+def save_acc(user):
+    d = {'user': user, 'time': datetime.now().strftime("%d/%m/%Y %H:%M")}
+    with open(ACCOUNT_FILE, 'w') as f:
+        f.write(enc(d))
+
+def clear_acc():
+    if os.path.exists(ACCOUNT_FILE):
+        os.remove(ACCOUNT_FILE)
+
+def consume_one_attempt():
+    """Wrapper trừ lượt"""
+    # Sẽ được implement bởi launcher
+    return True
+
 import os
 import sys
 import time
@@ -11,14 +66,6 @@ import re
 import subprocess
 from bs4 import BeautifulSoup
 from datetime import datetime
-
-
-# ========== WRAPPER CHO LAUNCHER ==========
-def consume_one_attempt():
-    """Wrapper để gọi hàm từ launcher"""
-    if 'consume_one_attempt' in globals():
-        return globals()['consume_one_attempt']()
-    return True
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -237,6 +284,20 @@ def login_olm():
         print_status("Tên đăng nhập và mật khẩu không được để trống!", 'error', Colors.RED)
         wait_enter()
         return None, None, None
+    
+    # Check account lock
+    acc = load_acc()
+    if acc and acc.get('user') != username:
+        print()
+        print_status(f"⛔ KEY ĐÃ LIÊN KẾT: {acc.get('user')}", 'error', Colors.RED)
+        print_status(f"Bạn đang nhập: {username}", 'warning', Colors.YELLOW)
+        print_status("Chọn [3] Đổi tài khoản để thay đổi", 'info', Colors.CYAN)
+        wait_enter()
+        return None, None, None
+    
+    if not acc:
+        save_acc(username)
+        print_status(f"🔐 Đã liên kết key với: {username}", 'success', Colors.GREEN)
     
     session = requests.Session()
     session.headers.update(HEADERS)
@@ -1241,11 +1302,11 @@ def solve_from_link(session, user_id):
 
 # ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH ==========
 def solve_specific_from_list(session, user_id):
-    """Giải bài cụ thể từ danh sách"""
+    """Giải bài cụ thể - HỖ TRỢ 0, 1, 1,3,5 + CHỌN ĐIỂM 1 LẦN"""
     print_header("GIẢI BÀI CỤ THỂ")
     
-    # Hỏi số trang
-    pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
+    # Quét bài
+    pages_input = input(f"{Colors.YELLOW}Số trang quét (mặc định 3): {Colors.END}").strip()
     pages_to_scan = 3
     if pages_input.isdigit() and int(pages_input) > 0:
         pages_to_scan = int(pages_input)
@@ -1257,23 +1318,174 @@ def solve_specific_from_list(session, user_id):
     
     display_assignments_table(assignments)
     
-    # Chọn bài để giải
-    try:
-        selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (1-{len(assignments)}): {Colors.END}").strip()
-        if selection.isdigit():
-            idx = int(selection) - 1
-            if 0 <= idx < len(assignments):
-                success = submit_assignment(session, assignments[idx], user_id)
-                return success
-            else:
-                print_status("Số bài không hợp lệ", 'error', Colors.RED)
-        else:
-            print_status("Vui lòng nhập số", 'error', Colors.RED)
-    except:
-        print_status("Lỗi chọn bài", 'error', Colors.RED)
+    # Hướng dẫn
+    print()
+    print(f"{Colors.CYAN}╔══════════════════════════════╗{Colors.END}")
+    print(f"{Colors.CYAN}║ {Colors.GREEN}Cách chọn:{Colors.END}")
+    print(f"{Colors.CYAN}║ {Colors.YELLOW}0{Colors.END}     → Tất cả")
+    print(f"{Colors.CYAN}║ {Colors.YELLOW}1,3,5{Colors.END} → Nhiều bài")
+    print(f"{Colors.CYAN}║ {Colors.YELLOW}1{Colors.END}     → 1 bài")
+    print(f"{Colors.CYAN}╚══════════════════════════════╝{Colors.END}")
     
+    # Chọn bài
+    selection = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
+    
+    selected_indices = []
+    if selection == '0':
+        selected_indices = list(range(len(assignments)))
+    elif ',' in selection:
+        for x in selection.split(','):
+            if x.strip().isdigit():
+                idx = int(x.strip()) - 1
+                if 0 <= idx < len(assignments):
+                    selected_indices.append(idx)
+    elif selection.isdigit():
+        idx = int(selection) - 1
+        if 0 <= idx < len(assignments):
+            selected_indices.append(idx)
+    
+    if not selected_indices:
+        print_status("Không hợp lệ!", 'error', Colors.RED)
+        wait_enter()
+        return False
+    
+    # CHỌN ĐIỂM 1 LẦN CHO TẤT CẢ
+    print()
+    print(f"{Colors.CYAN}╔══════════════════════════════╗{Colors.END}")
+    print(f"{Colors.CYAN}║ Chọn điểm cho TẤT CẢ bài:{Colors.END}")
+    print(f"{Colors.CYAN}║ {Colors.GREEN}[1]{Colors.END} 100 điểm")
+    print(f"{Colors.CYAN}║ {Colors.GREEN}[2]{Colors.END} Tùy chọn")
+    print(f"{Colors.CYAN}╚══════════════════════════════╝{Colors.END}")
+    
+    score_choice = input(f"{Colors.YELLOW}Chọn (1/2): {Colors.END}").strip()
+    
+    if score_choice == '1':
+        target_score = 100
+    elif score_choice == '2':
+        while True:
+            try:
+                score = int(input(f"{Colors.YELLOW}Nhập điểm (1-100): {Colors.END}"))
+                if 1 <= score <= 100:
+                    target_score = score
+                    break
+                print_status("Điểm từ 1-100!", 'error', Colors.RED)
+            except:
+                print_status("Nhập số!", 'error', Colors.RED)
+    else:
+        target_score = 100
+    
+    # Confirm
+    print(f"\n{Colors.CYAN}Giải {len(selected_indices)} bài với {target_score} điểm{Colors.END}")
+    if input(f"{Colors.YELLOW}OK? (y/n): {Colors.END}").lower() != 'y':
+        return False
+    
+    # Giải từng bài
+    print_header(f"GIẢI {len(selected_indices)} BÀI")
+    success_count = 0
+    
+    for i, idx in enumerate(selected_indices, 1):
+        # Trừ lượt
+        if not consume_one_attempt():
+            print()
+            print_status(f"⛔ Hết lượt! Giải được {success_count}/{len(selected_indices)}", 'warning', Colors.YELLOW)
+            wait_enter()
+            sys.exit(0)
+        
+        print(f"\n{Colors.YELLOW}{'━' * 40}{Colors.END}")
+        print(f"{Colors.CYAN}Bài #{idx+1} ({i}/{len(selected_indices)}){Colors.END}")
+        print(f"{Colors.YELLOW}{'━' * 40}{Colors.END}")
+        
+        assignment = assignments[idx]
+        
+        # Gọi submit với điểm cố định
+        try:
+            # XỬ LÝ VIDEO
+            if assignment['is_video']:
+                quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(
+                    session, assignment['url'], True
+                )
+                if handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
+                    success_count += 1
+            else:
+                # BÀI TẬP THƯỜNG
+                quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(
+                    session, assignment['url'], False
+                )
+                
+                if quiz_list and total_questions > 0:
+                    data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
+                    
+                    csrf_token = session.cookies.get('XSRF-TOKEN')
+                    if not csrf_token:
+                        resp = session.get(assignment['url'], timeout=5)
+                        csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
+                        csrf_token = csrf_match.group(1) if csrf_match else ""
+                    
+                    current_time = int(time.time())
+                    start_time = current_time - total_time if total_time > 0 else current_time - 600
+                    
+                    user_ans = ["0"] * total_questions
+                    list_ans = ["0"] * total_questions
+                    
+                    payload = {
+                        '_token': csrf_token,
+                        'id_user': user_id,
+                        'id_cate': id_cate or '0',
+                        'id_grade': '10',
+                        'id_courseware': id_courseware or '0',
+                        'id_group': '6148789559',
+                        'id_school': '0',
+                        'time_init': str(start_time),
+                        'name_user': '',
+                        'type_vip': '0',
+                        'time_spent': str(total_time),
+                        'data_log': json.dumps(data_log, separators=(',', ':')),
+                        'score': str(target_score),
+                        'answered': str(total_questions),
+                        'correct': str(correct_needed),
+                        'count_problems': str(total_questions),
+                        'missed': str(total_questions - correct_needed),
+                        'time_stored': str(current_time),
+                        'date_end': str(current_time),
+                        'ended': '1',
+                        'save_star': '0',
+                        'cv_q': '1',
+                        'quiz_list': quiz_list or '',
+                        'choose_log': json.dumps(data_log, separators=(',', ':')),
+                        'user_ans': json.dumps(user_ans),
+                        'list_quiz': quiz_list or '',
+                        'list_ans': ','.join(list_ans),
+                        'result': '[]',
+                        'ans': '[]'
+                    }
+                    
+                    submit_headers = HEADERS.copy()
+                    submit_headers['x-csrf-token'] = csrf_token
+                    
+                    response = session.post(
+                        'https://olm.vn/course/teacher-static',
+                        data=payload,
+                        headers=submit_headers,
+                        timeout=15
+                    )
+                    
+                    if handle_submission_response(response, target_score):
+                        success_count += 1
+        
+        except Exception as e:
+            print_status(f"Lỗi: {e}", 'error', Colors.RED)
+        
+        # Delay giữa các bài
+        if i < len(selected_indices):
+            time.sleep(random.randint(2, 4))
+    
+    # Kết quả
+    print()
+    print(f"{Colors.GREEN}{'═' * 40}{Colors.END}")
+    print_status(f"Hoàn thành {success_count}/{len(selected_indices)}", 'success', Colors.GREEN)
+    print(f"{Colors.GREEN}{'═' * 40}{Colors.END}")
     wait_enter()
-    return False
+    return True
 
 def process_all_assignments(session, assignments, user_id):
     """Xử lý tất cả bài tập"""
@@ -1338,7 +1550,10 @@ def main_menu(session, user_id, user_name):
             solve_from_link(session, user_id)
         
         elif choice == '3':
-            print_status("Đổi tài khoản...", 'refresh', Colors.YELLOW)
+            # Đổi tài khoản - XÓA ACCOUNT LOCK
+            clear_acc()
+            print_status("Đã xóa liên kết tài khoản", 'success', Colors.GREEN)
+            print_status("Đăng xuất...", 'refresh', Colors.YELLOW)
             time.sleep(1)
             break
         
