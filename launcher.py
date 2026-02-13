@@ -287,15 +287,10 @@ def get_vip():
 
 # ========== LOAD & RUN ==========
 def run():
-    banner()
-    msg("Tải tool từ GitHub...", C.C)
-    
+    """Tải và chạy tool từ GitHub"""
     try:
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
-        
-        msg("OK ✓", C.G)
-        time.sleep(0.5)
         
         # Lưu vào temp
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
