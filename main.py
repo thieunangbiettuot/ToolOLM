@@ -21,24 +21,12 @@ from bs4 import BeautifulSoup
 from datetime import datetime
 
 # ========== CẤU HÌNH BẢO MẬT (THÊM MỚI) ==========
-LICENSE_FILE = "system_config.json"
-
-def get_device_fingerprint():
-    """Tạo fingerprint thiết bị duy nhất"""
-    try:
-        ip = requests.get('https://api.ipify.org', timeout=5).text.strip()
-    except:
-        ip = "127.0.0.1"
-    
-    device_info = f"{ip}_{os.name}_{sys.platform}"
-    fingerprint = hashlib.sha256(device_info.encode()).hexdigest()[:16]
-    return fingerprint, ip
+LICENSE_FILE = "olm_license.dat"
+ACCOUNT_LOCK_FILE = "olm_account.dat"
 
 def check_license_validity():
     """Kiểm tra tính hợp lệ của license"""
     if not os.path.exists(LICENSE_FILE):
-        # KHÔNG CÓ LICENSE = CHƯA KÍCH HOẠT
-        # Trả về False để main.py xử lý
         return False
     
     try:
@@ -49,22 +37,53 @@ def check_license_validity():
         today = datetime.now().strftime("%d/%m/%Y")
         
         if expire_date != today:
-            # HẾT HẠN - XÓA VÀ BÁO LẠI
             try:
                 os.remove(LICENSE_FILE)
+                if os.path.exists(ACCOUNT_LOCK_FILE):
+                    os.remove(ACCOUNT_LOCK_FILE)
             except:
                 pass
             return False
         
-        # CÒN HẠN
         return True
     except:
-        # FILE BỊ LỖI - XÓA ĐI
         try:
             os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_LOCK_FILE):
+                os.remove(ACCOUNT_LOCK_FILE)
         except:
             pass
         return False
+
+def check_account_lock(username):
+    """Kiểm tra tài khoản đã bị khóa chưa"""
+    if not os.path.exists(ACCOUNT_LOCK_FILE):
+        # Chưa khóa → Khóa tài khoản này
+        try:
+            with open(ACCOUNT_LOCK_FILE, 'w', encoding='utf-8') as f:
+                json.dump({'username': username, 'locked_at': datetime.now().strftime("%d/%m/%Y %H:%M:%S")}, f)
+            print_status(f"🔐 Đã liên kết key với tài khoản: {username}", 'success', Colors.GREEN)
+            return True
+        except:
+            return False
+    else:
+        # Đã khóa → Kiểm tra
+        try:
+            with open(ACCOUNT_LOCK_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            locked_username = data.get('username')
+            
+            if locked_username == username:
+                return True
+            else:
+                print_status("⛔ KEY ĐÃ ĐƯỢC LIÊN KẾT VỚI TÀI KHOẢN KHÁC!", 'error', Colors.RED)
+                print_status(f"Tài khoản đã liên kết: {locked_username}", 'warning', Colors.YELLOW)
+                print_status(f"Tài khoản bạn nhập: {username}", 'info', Colors.CYAN)
+                print_status("Vui lòng sử dụng đúng tài khoản hoặc lấy key mới!", 'info', Colors.YELLOW)
+                return False
+        except:
+            return False
 
 def consume_attempt_and_check():
     """Trừ lượt và kiểm tra còn lượt không"""
@@ -286,6 +305,11 @@ def login_olm():
     
     if not username or not password:
         print_status("Tên đăng nhập và mật khẩu không được để trống!", 'error', Colors.RED)
+        wait_enter()
+        return None, None, None
+    
+    # KIỂM TRA ACCOUNT LOCK (1 KEY = 1 TÀI KHOẢN)
+    if not check_account_lock(username):
         wait_enter()
         return None, None, None
     
@@ -518,8 +542,6 @@ def get_assignments_fixed(session, pages_to_scan=5):
                                     id_cate = match.group(1)
                             
                             if id_cate:
-                                is_done = check_hidden_test_status(session, href, id_cate)
-                                if is_done:
                                     should_process = False
                                 else:
                                     should_process = True
@@ -1405,3 +1427,4 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"\n{ICONS['error']} {Colors.RED}Lỗi không mong muốn: {str(e)}{Colors.END}")
         wait_enter()
+                                    
