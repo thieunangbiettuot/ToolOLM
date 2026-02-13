@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-╔══════════════════════════════════════════════════════════════╗
-║                    OLM MASTER - AUTO SOLVER                  ║
-║                    Created by: Tuấn Anh                      ║
-╚══════════════════════════════════════════════════════════════╝
-"""
-
+"""OLM Master Pro - Main Tool v3.0"""
 import os
 import sys
 import time
@@ -17,6 +11,14 @@ import re
 import subprocess
 from bs4 import BeautifulSoup
 from datetime import datetime
+
+
+# ========== WRAPPER CHO LAUNCHER ==========
+def consume_one_attempt():
+    """Wrapper để gọi hàm từ launcher"""
+    if 'consume_one_attempt' in globals():
+        return globals()['consume_one_attempt']()
+    return True
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -1315,43 +1317,33 @@ def main_menu(session, user_id, user_name):
         print()
         
         menu_options = {
-            '1': f"{ICONS['rocket']} Tự động hoàn thành tất cả",
-            '2': f"{ICONS['brain']} Giải bài cụ thể từ danh sách",
-            '3': f"{ICONS['link']} Giải bài từ link OLM",
-            '4': f"{ICONS['refresh']} Đổi tài khoản",
-            '5': f"{ICONS['exit']} Thoát"
+            '1': f"{ICONS['brain']} Giải bài cụ thể (0=tất cả, 1,3,5=nhiều)",
+            '2': f"{ICONS['link']} Giải từ link",
+            '3': f"{ICONS['refresh']} Đổi tài khoản",
+            '4': f"{ICONS['exit']} Thoát"
         }
         
         print_menu("LỰA CHỌN", menu_options)
         
-        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-5): {Colors.END}").strip()
+        choice = input(f"\n{Colors.YELLOW}Chọn (1-4): {Colors.END}").strip()
         
         if choice == '1':
-            # Tự động hoàn thành tất cả
-            pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
-            pages_to_scan = 3
-            if pages_input.isdigit() and int(pages_input) > 0:
-                pages_to_scan = int(pages_input)
-            
-            assignments = get_assignments_fixed(session, pages_to_scan)
-            if assignments:
-                process_all_assignments(session, assignments, user_id)
-        
-        elif choice == '2':
-            # Giải bài cụ thể từ danh sách
             solve_specific_from_list(session, user_id)
         
-        elif choice == '3':
-            # Giải bài từ link
+        elif choice == '2':
+            if not consume_one_attempt():
+                print_status("⛔ Hết lượt!", 'error', Colors.RED)
+                time.sleep(1)
+                sys.exit(0)
             solve_from_link(session, user_id)
         
-        elif choice == '4':
+        elif choice == '3':
             print_status("Đổi tài khoản...", 'refresh', Colors.YELLOW)
             time.sleep(1)
             break
         
-        elif choice == '5':
-            print_status("Cảm ơn đã sử dụng!", 'exit', Colors.GREEN)
+        elif choice == '4':
+            print_status("Tạm biệt!", 'exit', Colors.GREEN)
             time.sleep(1)
             sys.exit(0)
         
