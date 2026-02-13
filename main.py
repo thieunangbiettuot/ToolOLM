@@ -64,9 +64,10 @@ def clear_acc():
         os.remove(ACCOUNT_FILE)
 
 def consume_one_attempt():
-    """Trừ 1 lượt mỗi khi làm bài - Hiện link vượt khi hết"""
+    """Kiểm tra và trừ lượt - Trả về True nếu CÒN lượt HOẶC vượt link thành công"""
     if not os.path.exists(LICENSE_FILE):
-        return bypass_with_link()  # Hết lượt → vượt link
+        # Không có file license → vượt link
+        return bypass_with_link()
     
     try:
         with open(LICENSE_FILE) as f:
@@ -75,17 +76,37 @@ def consume_one_attempt():
         if not d:
             return bypass_with_link()
         
+        # KIỂM TRA còn lượt không (CHƯA TRỪ)
+        if d['remain'] <= 0:
+            # Hết lượt → vượt link
+            return bypass_with_link()
+        
+        # CÒN LƯỢT → Return True (sẽ trừ SAU khi làm xong)
+        return True
+        
+    except Exception as e:
+        return bypass_with_link()
+
+def actually_consume_one():
+    """Thực sự TRỪ 1 lượt SAU khi làm bài THÀNH CÔNG"""
+    if not os.path.exists(LICENSE_FILE):
+        return
+    
+    try:
+        with open(LICENSE_FILE) as f:
+            d = dec(f.read())
+        
+        if not d:
+            return
+        
         # Trừ lượt
         d['remain'] -= 1
         
-        # Kiểm tra hết lượt
+        # Nếu hết lượt → xóa file
         if d['remain'] <= 0:
-            # Xóa license (giữ account)
             if os.path.exists(LICENSE_FILE):
                 os.remove(LICENSE_FILE)
-            
-            # Vượt link để tiếp tục
-            return bypass_with_link()
+            return
         
         # Cập nhật signature
         sig_str = f"{d['mode']}{d['expire']}{d['ip']}{d['dev']}{d['hw']}"
@@ -95,10 +116,8 @@ def consume_one_attempt():
         with open(LICENSE_FILE, 'w') as f:
             f.write(enc(d))
         
-        return True  # Còn lượt
-        
     except Exception as e:
-        return bypass_with_link()
+        pass
 
 def bypass_with_link():
     """Hiện link vượt để tiếp tục khi hết lượt"""
@@ -110,17 +129,19 @@ def bypass_with_link():
     print(f"{Colors.YELLOW}⛔ HẾT LƯỢT! Vượt link để tiếp tục{Colors.END}")
     print(f"{Colors.RED}{'═' * 60}{Colors.END}")
     
-    # Tạo key mới
+    # Tạo key mới HOÀN TOÀN UNIQUE
     dev_id = hashlib.md5(f"{socket.gethostname()}{os.name}{uuid.getnode()}".encode()).hexdigest()[:16].upper()
     hw_id = hashlib.sha256(f"{uuid.getnode()}{sys.platform}".encode()).hexdigest()[:20].upper()
-    h = hashlib.sha256(f"{dev_id}{hw_id}{datetime.now():%d%m%Y}".encode()).hexdigest()
+    
+    # Thêm timestamp + random để key LUÔN KHÁC NHAU
+    timestamp = int(time.time() * 1000)  # milliseconds
+    random_salt = random.randint(100000, 999999)
+    
+    h = hashlib.sha256(f"{dev_id}{hw_id}{timestamp}{random_salt}".encode()).hexdigest()
     new_key = f"OLM-{datetime.now():%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
     
     # Tạo link
     try:
-        import socket
-        import uuid
-        
         URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
         API_TOKEN = "698b226d9150d31d216157a5"
         
@@ -132,7 +153,8 @@ def bypass_with_link():
         link = f"{URL_BLOG}?ma={new_key}"
     
     print(f"\n{Colors.CYAN}BƯỚC 1: {Colors.GREEN}{link}{Colors.END}")
-    print(f"{Colors.CYAN}BƯỚC 2: Nhập mã để tiếp tục{Colors.END}\n")
+    print(f"{Colors.CYAN}BƯỚC 2: Nhập mã để tiếp tục{Colors.END}")
+    print(f"{Colors.YELLOW}(Mã bắt đầu bằng: OLM-{datetime.now():%d%m}-...){Colors.END}\n")
     
     # Cho 3 lần nhập
     for attempt in range(3):
@@ -959,7 +981,7 @@ def create_data_log_for_normal(total_questions, target_score):
     return data_log, total_time, correct_needed
 
 def submit_assignment(session, assignment, user_id):
-    """Nộp bài tập"""
+    """Nộp bài tập - KHÔNG TRỪ LƯỢT (đã trừ ở hàm cha)"""
     print(f"\n{Colors.CYAN}{ICONS['upload']} ĐANG XỬ LÝ:{Colors.END}")
     print(f"{Colors.WHITE}📖 {assignment['title']}{Colors.END}")
     
@@ -1366,9 +1388,9 @@ def solve_from_link(session, user_id):
         wait_enter()
         return False
     
-    # TRỪ LƯỢT TRƯỚC KHI LÀM
+    # KIỂM TRA CÒN LƯỢT (chưa trừ)
     if not consume_one_attempt():
-        # Hàm consume_one_attempt đã xử lý việc vượt link
+        # User từ chối vượt link
         return False
     
     try:
@@ -1406,6 +1428,11 @@ def solve_from_link(session, user_id):
         
         if confirm == 'y':
             success = submit_assignment(session, assignment, user_id)
+            
+            # ⭐ TRỪ LƯỢT SAU KHI THÀNH CÔNG
+            if success:
+                actually_consume_one()
+            
             return success
         else:
             print_status("Đã hủy", 'warning', Colors.YELLOW)
@@ -1499,10 +1526,9 @@ def solve_specific_from_list(session, user_id):
     success_count = 0
     
     for i, idx in enumerate(selected_indices, 1):
-        # ⭐ TRỪ 1 LƯỢT CHO MỖI BÀI
+        # ⭐ KIỂM TRA còn lượt (chưa trừ)
         if not consume_one_attempt():
-            # Hàm consume_one_attempt đã xử lý việc vượt link
-            # Nếu return False = user từ chối vượt link
+            # User từ chối vượt link hoặc lỗi
             print()
             print_status(f"Đã giải {success_count}/{len(selected_indices)} bài", 'info', Colors.YELLOW)
             wait_enter()
@@ -1522,6 +1548,8 @@ def solve_specific_from_list(session, user_id):
                     session, assignment['url'], True
                 )
                 if handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
+                    # ⭐ TRỪ LƯỢT SAU KHI THÀNH CÔNG
+                    actually_consume_one()
                     success_count += 1
             else:
                 # BÀI TẬP THƯỜNG
@@ -1587,6 +1615,8 @@ def solve_specific_from_list(session, user_id):
                     )
                     
                     if handle_submission_response(response, target_score):
+                        # ⭐ TRỪ LƯỢT SAU KHI THÀNH CÔNG
+                        actually_consume_one()
                         success_count += 1
         
         except Exception as e:
