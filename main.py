@@ -62,8 +62,42 @@ def clear_acc():
         os.remove(ACCOUNT_FILE)
 
 def consume_one_attempt():
-    """Wrapper trừ lượt - được gọi từ launcher"""
-    return True
+    """Trừ 1 lượt mỗi khi làm bài"""
+    if not os.path.exists(LICENSE_FILE):
+        return False
+    
+    try:
+        with open(LICENSE_FILE) as f:
+            d = dec(f.read())
+        
+        if not d:
+            return False
+        
+        # Trừ lượt
+        d['remain'] -= 1
+        
+        # Kiểm tra hết lượt
+        if d['remain'] <= 0:
+            # Xóa license và account
+            if os.path.exists(LICENSE_FILE):
+                os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_FILE):
+                os.remove(ACCOUNT_FILE)
+            return False  # Hết lượt
+        
+        # Cập nhật signature
+        KEY_FOR_SIG = b'OLM_ULTRA_SECRET_2026_PROTECTION'
+        sig_str = f"{d['mode']}{d['expire']}{d['ip']}{d['dev']}{d['hw']}"
+        d['sig'] = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
+        
+        # Lưu lại
+        with open(LICENSE_FILE, 'w') as f:
+            f.write(enc(d))
+        
+        return True  # Còn lượt
+        
+    except Exception as e:
+        return False
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -1521,6 +1555,14 @@ def main_menu(session, user_id, user_name):
     """Menu chính"""
     
     while True:
+        # Kiểm tra còn lượt không
+        if not os.path.exists(LICENSE_FILE):
+            print_header("HẾT LƯỢT")
+            print_status("⛔ KEY ĐÃ HẾT LƯỢT!", 'error', Colors.RED)
+            print_status("Vui lòng khởi động lại tool để lấy key mới", 'info', Colors.YELLOW)
+            wait_enter()
+            sys.exit(0)
+        
         print_header("MENU CHÍNH")
         print(f"{ICONS['user']} {Colors.GREEN}Xin chào: {user_name}{Colors.END}")
         print()
