@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-╔══════════════════════════════════════════════════════════════╗
-║                    OLM MASTER PRO v3.0                       ║
-║              Professional License Activation                 ║
-║                    Powered by AI Technology                  ║
-╚══════════════════════════════════════════════════════════════╝
+OLM Master Pro - License Activation System
 """
 
 import os
@@ -23,152 +19,112 @@ API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN_TOOL = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
 
-CONFIG_FILE = "olm_license.dat"
-ACCOUNT_LOCK_FILE = "olm_account.dat"
+LICENSE_FILE = "olm_license.dat"
+ACCOUNT_FILE = "olm_account.dat"
 
-# ========== MÀU SẮC & BIỂU TƯỢNG ==========
-class Color:
-    HEADER = '\033[95m'
-    BLUE = '\033[94m'
-    CYAN = '\033[96m'
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    WHITE = '\033[97m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-    END = '\033[0m'
-    
-    # Gradient colors
-    PINK = '\033[38;5;213m'
-    ORANGE = '\033[38;5;214m'
-    PURPLE = '\033[38;5;141m'
-
-class Icon:
-    ROCKET = '🚀'
-    STAR = '⭐'
-    LOCK = '🔐'
-    KEY = '🔑'
-    CHECK = '✓'
-    CROSS = '✗'
-    WARNING = '⚠'
-    INFO = 'ℹ'
-    ARROW = '➤'
-    SPARKLE = '✨'
-    SHIELD = '🛡'
-    FIRE = '🔥'
-    CROWN = '👑'
+# ========== MÀU SẮC ==========
+class C:
+    R = '\033[91m'; G = '\033[92m'; Y = '\033[93m'
+    B = '\033[94m'; C = '\033[96m'; W = '\033[97m'; E = '\033[0m'
 
 # ========== TIỆN ÍCH ==========
 def clear():
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def print_gradient_line(char='═', width=70):
-    """In đường kẻ với gradient"""
-    colors = [Color.CYAN, Color.BLUE, Color.PURPLE]
-    line = ''
-    for i in range(width):
-        color = colors[i % len(colors)]
-        line += f"{color}{char}"
-    print(line + Color.END)
+def line(char='─'):
+    try:
+        w = min(os.get_terminal_size().columns - 4, 65)
+    except:
+        w = 60
+    print(f"{C.C}{char * w}{C.E}")
 
-def print_box(text, color=Color.CYAN, width=70):
-    """In text trong box"""
-    padding = (width - len(text) - 4) // 2
-    print(f"{color}║{' ' * padding} {text} {' ' * padding}║{Color.END}")
-
-def print_banner():
-    """Banner chuyên nghiệp"""
+def banner():
     clear()
     print()
-    print(f"{Color.CYAN}{Color.BOLD}")
-    print("    ╔═══════════════════════════════════════════════════════════════╗")
-    print("    ║                                                               ║")
-    print(f"    ║       {Icon.ROCKET}  {Color.PURPLE}OLM MASTER PRO{Color.CYAN} - {Color.PINK}Education Assistant{Color.CYAN}  {Icon.FIRE}      ║")
-    print("    ║                                                               ║")
-    print(f"    ║              {Color.YELLOW}Professional License Manager v3.0{Color.CYAN}              ║")
-    print("    ║                                                               ║")
-    print("    ╚═══════════════════════════════════════════════════════════════╝")
-    print(Color.END)
+    line('═')
+    print(f"{C.B}  OLM MASTER PRO - Education Assistant v3.0{C.E}")
+    line('═')
     print()
 
-def status(msg, icon=Icon.INFO, color=Color.WHITE):
-    print(f"  {icon} {color}{msg}{Color.END}")
-
-def success(msg):
-    status(msg, Icon.CHECK, Color.GREEN)
-
-def error(msg):
-    status(msg, Icon.CROSS, Color.RED)
-
-def warning(msg):
-    status(msg, Icon.WARNING, Color.YELLOW)
-
-def info(msg):
-    status(msg, Icon.INFO, Color.CYAN)
+def msg(text, symbol='•', color=C.W):
+    print(f"  {symbol} {color}{text}{C.E}")
 
 # ========== HỆ THỐNG ==========
 def get_device_id():
     try:
         data = socket.gethostname() + os.name + str(uuid.getnode())
-        return hashlib.md5(data.encode()).hexdigest()[:16].upper()
+        return hashlib.md5(data.encode()).hexdigest()[:12].upper()
     except:
-        return "DEVICE_UNKNOWN"
+        return "UNKNOWN"
 
 def get_ip():
     try:
-        return requests.get('https://api.ipify.org?format=json', timeout=5).json()['ip']
+        return requests.get('https://api.ipify.org', timeout=5).text.strip()
     except:
         return "0.0.0.0"
 
-def check_internet():
-    try:
-        requests.get('https://www.google.com', timeout=3)
-        return True
-    except:
-        return False
-
-# ========== QUẢN LÝ LICENSE ==========
+# ========== LICENSE ==========
 def load_license():
-    if not os.path.exists(CONFIG_FILE):
+    if not os.path.exists(LICENSE_FILE):
         return None
     try:
-        with open(CONFIG_FILE, 'r') as f:
+        with open(LICENSE_FILE, 'r') as f:
             data = json.load(f)
         
-        # Check ngày hết hạn
+        # Check hết hạn
         if data.get('expire') != datetime.now().strftime("%d/%m/%Y"):
-            os.remove(CONFIG_FILE)
+            os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_FILE):
+                os.remove(ACCOUNT_FILE)
             return None
         
         # Check IP + Device
         if data.get('ip') == get_ip() and data.get('device') == get_device_id():
+            # Verify checksum
+            check_str = f"{data.get('ip')}{data.get('device')}{data.get('expire')}"
+            expected = hashlib.md5(check_str.encode()).hexdigest()[:8]
+            if data.get('checksum') != expected:
+                os.remove(LICENSE_FILE)
+                return None
+            
             if data.get('remain', 0) > 0:
                 return data
         else:
-            warning("Phát hiện thay đổi IP hoặc thiết bị!")
-            os.remove(CONFIG_FILE)
+            msg("Phát hiện thay đổi IP/thiết bị!", '⚠', C.Y)
+            os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_FILE):
+                os.remove(ACCOUNT_FILE)
         
         return None
     except:
         try:
-            os.remove(CONFIG_FILE)
+            os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_FILE):
+                os.remove(ACCOUNT_FILE)
         except:
             pass
         return None
 
 def save_license(mode, remain):
+    ip = get_ip()
+    device = get_device_id()
+    expire = datetime.now().strftime("%d/%m/%Y")
+    
+    # Tạo checksum
+    check_str = f"{ip}{device}{expire}"
+    checksum = hashlib.md5(check_str.encode()).hexdigest()[:8]
+    
     data = {
         'mode': mode,
         'remain': remain,
-        'expire': datetime.now().strftime("%d/%m/%Y"),
-        'ip': get_ip(),
-        'device': get_device_id(),
-        'created': datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        'expire': expire,
+        'ip': ip,
+        'device': device,
+        'checksum': checksum
     }
     
     try:
-        with open(CONFIG_FILE, 'w') as f:
+        with open(LICENSE_FILE, 'w') as f:
             json.dump(data, f, indent=2)
         return True
     except:
@@ -183,250 +139,183 @@ def consume_attempt():
     
     if data['remain'] <= 0:
         try:
-            os.remove(CONFIG_FILE)
-            if os.path.exists(ACCOUNT_LOCK_FILE):
-                os.remove(ACCOUNT_LOCK_FILE)
+            os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_FILE):
+                os.remove(ACCOUNT_FILE)
         except:
             pass
-        return True  # Lượt cuối
+        return True
     
     try:
-        with open(CONFIG_FILE, 'w') as f:
+        with open(LICENSE_FILE, 'w') as f:
             json.dump(data, f, indent=2)
         return True
     except:
         return False
 
 # ========== KÍCH HOẠT ==========
-def show_activation_ui():
-    print_banner()
+def activate():
+    lic = load_license()
+    
+    if lic and lic.get('remain', 0) > 0:
+        banner()
+        msg(f"License: {lic['mode']}", '✓', C.G)
+        msg(f"Còn lại: {lic['remain']} lượt", '•', C.C)
+        time.sleep(1.5)
+        return True
+    
+    banner()
     
     device = get_device_id()
     ip = get_ip()
     
-    print(f"{Color.CYAN}  ┌─────────────────────────────────────────────────────────────┐{Color.END}")
-    print(f"{Color.CYAN}  │{Color.END}  {Color.BOLD}System Information{Color.END}                                          {Color.CYAN}│{Color.END}")
-    print(f"{Color.CYAN}  ├─────────────────────────────────────────────────────────────┤{Color.END}")
-    print(f"{Color.CYAN}  │{Color.END}  {Icon.SHIELD} Device ID : {Color.YELLOW}{device:<42}{Color.END} {Color.CYAN}│{Color.END}")
-    print(f"{Color.CYAN}  │{Color.END}  {Icon.SPARKLE} IP Address: {Color.YELLOW}{ip:<42}{Color.END} {Color.CYAN}│{Color.END}")
-    print(f"{Color.CYAN}  │{Color.END}  {Icon.FIRE} Status    : {Color.RED}Chưa kích hoạt{' ' * 34}{Color.END} {Color.CYAN}│{Color.END}")
-    print(f"{Color.CYAN}  └─────────────────────────────────────────────────────────────┘{Color.END}")
+    msg(f"Device: {device}", '•', C.W)
+    msg(f"IP: {ip}", '•', C.W)
     print()
+    line()
+    print(f"{C.Y}  [1] Key FREE (4 lượt/ngày){C.E}")
+    print(f"{C.G}  [2] Key VIP (Unlimited){C.E}")
+    print(f"{C.C}  [3] Thông tin VIP{C.E}")
+    print(f"{C.R}  [0] Thoát{C.E}")
+    line()
+    
+    choice = input(f"{C.Y}  Chọn: {C.E}").strip()
+    
+    if choice == '1':
+        return activate_free()
+    elif choice == '2':
+        return activate_vip()
+    elif choice == '3':
+        show_vip_info()
+        return activate()
+    elif choice == '0':
+        msg("Tạm biệt!", '•', C.C)
+        sys.exit(0)
+    else:
+        msg("Lựa chọn không hợp lệ!", '✗', C.R)
+        time.sleep(1)
+        return activate()
 
-def activate_free_key():
-    show_activation_ui()
+def activate_free():
+    banner()
     
     device = get_device_id()
     daily_key = f"OLM{datetime.now().strftime('%d%m')}{device[-3:]}"
     
-    print(f"{Color.GREEN}  ╔═════════════════════════════════════════════════════════════╗{Color.END}")
-    print(f"{Color.GREEN}  ║{Color.END}              {Icon.KEY} {Color.BOLD}FREE LICENSE ACTIVATION{Color.END}                    {Color.GREEN}║{Color.END}")
-    print(f"{Color.GREEN}  ╚═════════════════════════════════════════════════════════════╝{Color.END}")
-    print()
-    
-    info("Đang tạo link kích hoạt...")
+    msg("Đang tạo link kích hoạt...", '•', C.C)
     time.sleep(1)
     
-    # Tạo link
+    # Tạo link với ?ma= (ĐÚNG!)
+    full_url = f"{URL_BLOG}?ma={daily_key}"
+    
     try:
-        full_url = f"{URL_BLOG}?key={daily_key}"
-        encoded = requests.utils.quote(full_url)
-        
-        # Dùng API shortener đơn giản hơn
-        api = f"https://link4m.co/api-shorten/v2"
-        payload = {'api': API_TOKEN, 'url': full_url}
-        
-        resp = requests.post(api, data=payload, timeout=10)
+        # API v2 đúng cách
+        api_url = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={requests.utils.quote(full_url)}"
+        resp = requests.get(api_url, timeout=10)
         result = resp.json()
         
         if result.get('status') == 'success':
             short_link = result.get('shortenedUrl')
         else:
-            # Fallback
             short_link = full_url
     except:
         short_link = full_url
     
     print()
-    print(f"{Color.YELLOW}  ┌───────────────────────────────────────────────────────────┐{Color.END}")
-    print(f"{Color.YELLOW}  │{Color.END} {Color.BOLD}BƯỚC 1:{Color.END} Truy cập link để lấy mã kích hoạt               {Color.YELLOW}│{Color.END}")
-    print(f"{Color.YELLOW}  ├───────────────────────────────────────────────────────────┤{Color.END}")
-    print(f"{Color.YELLOW}  │{Color.END} {Icon.ARROW} {Color.CYAN}{short_link:<54}{Color.END}{Color.YELLOW}│{Color.END}")
-    print(f"{Color.YELLOW}  └───────────────────────────────────────────────────────────┘{Color.END}")
+    line()
+    print(f"{C.G}  BƯỚC 1: Truy cập link{C.E}")
+    print(f"{C.C}  {short_link}{C.E}")
     print()
-    
-    print(f"{Color.YELLOW}  ┌───────────────────────────────────────────────────────────┐{Color.END}")
-    print(f"{Color.YELLOW}  │{Color.END} {Color.BOLD}BƯỚC 2:{Color.END} Nhập mã kích hoạt vào đây                       {Color.YELLOW}│{Color.END}")
-    print(f"{Color.YELLOW}  └───────────────────────────────────────────────────────────┘{Color.END}")
+    print(f"{C.G}  BƯỚC 2: Nhập mã kích hoạt{C.E}")
+    line()
     print()
     
     for attempt in range(3):
-        key_input = input(f"  {Icon.KEY} {Color.BOLD}Nhập mã: {Color.END}").strip()
+        key_input = input(f"{C.Y}  Mã: {C.E}").strip()
         
         if key_input == daily_key or key_input.upper() == "ADMIN_PREMIUM_2026":
             is_vip = key_input.upper() == "ADMIN_PREMIUM_2026"
             
             print()
-            info("Đang xác thực...")
+            msg("Đang xác thực...", '•', C.C)
             time.sleep(1)
             
             if save_license("VIP" if is_vip else "FREE", 999999 if is_vip else 4):
-                print()
-                success("Kích hoạt thành công!")
-                success(f"Loại: {'VIP Premium' if is_vip else 'FREE (4 lượt)'}")
-                time.sleep(2)
+                msg("Kích hoạt thành công!", '✓', C.G)
+                time.sleep(1.5)
                 return True
         else:
             remaining = 2 - attempt
             if remaining > 0:
-                error(f"Mã không hợp lệ! Còn {remaining} lần thử")
-                print()
+                msg(f"Sai mã! Còn {remaining} lần", '✗', C.R)
             else:
-                error("Hết lượt thử. Vui lòng lấy link mới!")
-                time.sleep(2)
+                msg("Hết lượt thử!", '✗', C.R)
+                time.sleep(1.5)
                 return False
     
     return False
 
-def activate_vip_key():
-    show_activation_ui()
+def activate_vip():
+    banner()
     
-    print(f"{Color.PURPLE}  ╔═════════════════════════════════════════════════════════════╗{Color.END}")
-    print(f"{Color.PURPLE}  ║{Color.END}              {Icon.CROWN} {Color.BOLD}VIP PREMIUM ACTIVATION{Color.END}                   {Color.PURPLE}║{Color.END}")
-    print(f"{Color.PURPLE}  ╚═════════════════════════════════════════════════════════════╝{Color.END}")
+    line()
+    print(f"{C.G}  VIP PREMIUM ACTIVATION{C.E}")
+    line()
     print()
     
-    vip_key = input(f"  {Icon.CROWN} {Color.BOLD}Nhập mã VIP: {Color.END}").strip()
+    vip_key = input(f"{C.Y}  Mã VIP: {C.E}").strip()
     
-    valid_keys = ["OLM_VIP_2026", "PREMIUM_UNLIMITED", "ADMIN_PREMIUM_2026"]
+    valid = ["OLM_VIP_2026", "PREMIUM_UNLIMITED"]
     
-    if vip_key.upper() in valid_keys:
+    if vip_key.upper() in valid:
         print()
-        info("Đang xác thực VIP...")
+        msg("Đang xác thực...", '•', C.C)
         time.sleep(1)
         
         if save_license("VIP", 999999):
-            print()
-            success("Kích hoạt VIP thành công!")
-            success("Loại: Premium Unlimited")
-            time.sleep(2)
+            msg("Kích hoạt VIP thành công!", '✓', C.G)
+            time.sleep(1.5)
             return True
     
-    error("Mã VIP không hợp lệ!")
-    time.sleep(2)
+    msg("Mã VIP không hợp lệ!", '✗', C.R)
+    time.sleep(1.5)
     return False
 
 def show_vip_info():
-    print_banner()
+    banner()
     
-    print(f"{Color.PINK}  ╔═════════════════════════════════════════════════════════════╗{Color.END}")
-    print(f"{Color.PINK}  ║{Color.END}              {Icon.CROWN} {Color.BOLD}VIP PREMIUM PACKAGE{Color.END}                      {Color.PINK}║{Color.END}")
-    print(f"{Color.PINK}  ╚═════════════════════════════════════════════════════════════╝{Color.END}")
+    line()
+    print(f"{C.G}  VIP PREMIUM - 50K/tháng{C.E}")
+    line()
+    print()
+    print(f"{C.G}  ✓ Unlimited lượt giải{C.E}")
+    print(f"{C.G}  ✓ Xử lý ưu tiên{C.E}")
+    print(f"{C.G}  ✓ Hỗ trợ 24/7{C.E}")
+    print(f"{C.G}  ✓ Cập nhật mới{C.E}")
+    print()
+    print(f"{C.C}  Zalo: 0123456789{C.E}")
+    print(f"{C.C}  Email: vip@olmmaster.pro{C.E}")
     print()
     
-    features = [
-        ("Không giới hạn lượt giải bài", Icon.CHECK),
-        ("Hỗ trợ tất cả môn học", Icon.CHECK),
-        ("Tốc độ xử lý ưu tiên", Icon.ROCKET),
-        ("Hỗ trợ kỹ thuật 24/7", Icon.SHIELD),
-        ("Cập nhật tính năng mới", Icon.SPARKLE),
-    ]
-    
-    for feature, icon in features:
-        print(f"  {icon} {Color.GREEN}{feature}{Color.END}")
-    
-    print()
-    print(f"{Color.YELLOW}  {Icon.FIRE} GIÁ: {Color.BOLD}50.000 VNĐ/tháng{Color.END}")
-    print()
-    print(f"{Color.CYAN}  LIÊN HỆ:{Color.END}")
-    print(f"  {Icon.SPARKLE} Zalo    : 0123456789")
-    print(f"  {Icon.SPARKLE} Email   : vip@olmmaster.pro")
-    print(f"  {Icon.SPARKLE} Facebook: fb.com/olmmaster")
-    print()
-    
-    input(f"{Color.YELLOW}Nhấn Enter để quay lại...{Color.END}")
+    input(f"{C.Y}Nhấn Enter...{C.E}")
 
-# ========== MENU CHÍNH ==========
-def main_menu():
-    while True:
-        license_data = load_license()
-        
-        if license_data and license_data.get('remain', 0) > 0:
-            print_banner()
-            
-            mode = license_data.get('mode', 'FREE')
-            remain = license_data.get('remain', 0)
-            
-            print(f"{Color.GREEN}  ┌─────────────────────────────────────────────────────────────┐{Color.END}")
-            print(f"{Color.GREEN}  │{Color.END}  {Icon.CHECK} {Color.BOLD}License Status{Color.END}                                         {Color.GREEN}│{Color.END}")
-            print(f"{Color.GREEN}  ├─────────────────────────────────────────────────────────────┤{Color.END}")
-            print(f"{Color.GREEN}  │{Color.END}  {Icon.KEY} Loại      : {Color.YELLOW}{mode:<45}{Color.END} {Color.GREEN}│{Color.END}")
-            print(f"{Color.GREEN}  │{Color.END}  {Icon.FIRE} Còn lại   : {Color.CYAN}{remain if remain < 999 else 'Unlimited':<45}{Color.END} {Color.GREEN}│{Color.END}")
-            print(f"{Color.GREEN}  │{Color.END}  {Icon.SPARKLE} Hết hạn   : {Color.WHITE}{license_data.get('expire', 'N/A'):<45}{Color.END} {Color.GREEN}│{Color.END}")
-            print(f"{Color.GREEN}  └─────────────────────────────────────────────────────────────┘{Color.END}")
-            print()
-            
-            success("License hợp lệ! Đang khởi động tool...")
-            time.sleep(2)
-            return True
-        
-        # Chưa có license
-        print_banner()
-        
-        print(f"{Color.CYAN}  ╔═════════════════════════════════════════════════════════════╗{Color.END}")
-        print(f"{Color.CYAN}  ║{Color.END}                   {Color.BOLD}PHƯƠNG THỨC KÍCH HOẠT{Color.END}                      {Color.CYAN}║{Color.END}")
-        print(f"{Color.CYAN}  ╚═════════════════════════════════════════════════════════════╝{Color.END}")
-        print()
-        
-        options = [
-            (f"{Icon.KEY}  Free License (4 lượt/ngày)", "1"),
-            (f"{Icon.CROWN}  VIP Premium (Không giới hạn)", "2"),
-            (f"{Icon.INFO}  Thông tin gói VIP", "3"),
-            (f"{Icon.CROSS}  Thoát", "0"),
-        ]
-        
-        for opt, num in options:
-            color = Color.YELLOW if num in ['1', '2'] else Color.PURPLE if num == '3' else Color.RED
-            print(f"  {color}[{num}]{Color.END} {opt}")
-        
-        print()
-        choice = input(f"  {Icon.ARROW} {Color.BOLD}Lựa chọn: {Color.END}").strip()
-        
-        if choice == '1':
-            if activate_free_key():
-                continue
-        elif choice == '2':
-            if activate_vip_key():
-                continue
-        elif choice == '3':
-            show_vip_info()
-        elif choice == '0':
-            print()
-            info("Tạm biệt!")
-            time.sleep(1)
-            sys.exit(0)
-        else:
-            error("Lựa chọn không hợp lệ!")
-            time.sleep(1)
-
-# ========== TẢI TOOL CHÍNH ==========
-def load_main_tool():
-    clear()
-    print_banner()
+# ========== LOAD TOOL ==========
+def load_tool():
+    banner()
     
-    info("Đang kết nối máy chủ...")
+    msg("Đang kết nối máy chủ...", '•', C.C)
     
     try:
         resp = requests.get(URL_MAIN_TOOL, timeout=15)
         resp.raise_for_status()
         
-        success("Đã tải module chính")
+        msg("Đã tải module chính", '✓', C.G)
         time.sleep(1)
         
-        info("Đang khởi động OLM Master Pro...")
+        msg("Đang khởi động...", '•', C.C)
         time.sleep(1)
         
-        # Truyền hàm vào tool chính
+        # Truyền hàm
         exec_globals = {
             '__name__': '__main__',
             'consume_one_attempt': consume_attempt,
@@ -436,7 +325,7 @@ def load_main_tool():
         exec(resp.text, exec_globals)
         
     except Exception as e:
-        error(f"Lỗi tải tool: {e}")
+        msg(f"Lỗi: {e}", '✗', C.R)
         input("\nNhấn Enter...")
         sys.exit(1)
 
@@ -444,23 +333,13 @@ def load_main_tool():
 if __name__ == "__main__":
     try:
         while True:
-            if not check_internet():
-                print_banner()
-                error("Không có kết nối Internet!")
-                time.sleep(3)
-                continue
-            
-            # Menu kích hoạt
-            if main_menu():
-                # Đã kích hoạt → Load tool chính
-                load_main_tool()
-                
-                # Tool kết thúc → Quay lại menu
-                info("Phiên làm việc kết thúc")
+            if activate():
+                load_tool()
+                msg("Phiên kết thúc", '•', C.C)
                 time.sleep(2)
             
     except KeyboardInterrupt:
-        print(f"\n\n  {Icon.WARNING} {Color.YELLOW}Đã dừng{Color.END}")
+        print(f"\n{C.Y}Đã dừng{C.E}")
     except Exception as e:
-        error(f"Lỗi: {e}")
+        msg(f"Lỗi: {e}", '✗', C.R)
         time.sleep(3)
