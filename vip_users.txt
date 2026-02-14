@@ -1,0 +1,10 @@
+# OLM Master Pro - VIP Users Database
+# Danh sách username OLM có quyền VIP
+# Cập nhật: 14/02/2026
+
+# VIP Users - Thêm username vào đây
+a92010_letrungdung
+
+# Admin accounts
+
+# Thêm username mới vào cuối file này
