@@ -18,9 +18,10 @@ from pathlib import Path
 
 # ========== CẤU HÌNH ==========
 API_TOKEN = "698b226d9150d31d216157a5"
-API_TOKEN_BACKUP = "698b226d9150d31d216157a5"  # Link4m dự phòng (có thể dùng API khác)
+API_TOKEN_BACKUP = "698b226d9150d31d216157a5"  # Link4m dự phòng
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
+URL_VIP_USERS = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"  # Danh sách username VIP
 
 # Các dịch vụ rút gọn link dự phòng
 LINK_SERVICES = [
@@ -280,6 +281,26 @@ def gen_key():
     return f"OLM-{now:%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
 
+
+# ========== CHECK VIP USER ONLINE ==========
+def check_vip_user(username):
+    """Kiểm tra username có trong danh sách VIP trên GitHub không"""
+    try:
+        r = requests.get(URL_VIP_USERS, timeout=5)
+        if r.status_code == 200:
+            # Đọc danh sách username VIP (mỗi dòng 1 username)
+            vip_users = []
+            for line in r.text.strip().split('\n'):
+                line = line.strip()
+                # Bỏ qua comment và dòng trống
+                if line and not line.startswith('#'):
+                    vip_users.append(line.lower())
+            
+            return username.lower() in vip_users
+    except:
+        pass
+    return False
+
 # ========== KÍCH HOẠT ==========
 def activate():
     lic = load_lic()
@@ -301,7 +322,7 @@ def activate():
     msg(f"IP: {ip()}", C.W)
     print(f"\n{C.C}{'─' * w()}{C.E}")
     print(f"{C.Y}  [1] Key FREE (4 lượt/ngày){C.E}")
-    print(f"{C.G}  [2] Key VIP (Unlimited){C.E}")
+    print(f"{C.G}  [2] Tài khoản VIP (Unlimited - Liên hệ admin){C.E}")
     print(f"{C.R}  [0] Thoát{C.E}")
     print(f"{C.C}{'─' * w()}{C.E}")
     
@@ -310,7 +331,8 @@ def activate():
     if ch == '1':
         return get_free()
     elif ch == '2':
-        return get_vip()
+        show_vip_info()
+        return activate()  # Quay lại menu
     elif ch == '0':
         sys.exit(0)
     else:
@@ -415,22 +437,31 @@ def get_free():
                 return False
             time.sleep(1)
 
-def get_vip():
+def show_vip_info():
+    """Hiển thị thông tin VIP"""
     banner()
-    inp = input(f"{C.Y}  Mã VIP: {C.E}").strip()
-    
-    if inp.upper() in ["OLM_VIP_2026", "PREMIUM_2026"]:
-        msg("Xác thực...", C.C)
-        time.sleep(1)
-        
-        if save_lic("VIP", 999999):
-            msg("VIP OK!", C.G)
-            time.sleep(1)
-            return True
-    
-    msg("Sai!", C.R)
-    time.sleep(1)
-    return False
+    print(f"{C.G}{'═' * w()}{C.E}")
+    print(f"{C.G}{'👑 TÍNH NĂNG VIP 👑'.center(w())}{C.E}")
+    print(f"{C.G}{'═' * w()}{C.E}")
+    print()
+    print(f"{C.Y}  ✨ Đặc quyền VIP:{C.E}")
+    print(f"{C.W}     • Unlimited lượt sử dụng{C.E}")
+    print(f"{C.W}     • Không giới hạn thời gian{C.E}")
+    print(f"{C.W}     • Hỗ trợ ưu tiên 24/7{C.E}")
+    print()
+    print(f"{C.C}{'─' * w()}{C.E}")
+    print(f"{C.Y}  📞 ĐĂNG KÝ VIP:{C.E}")
+    print(f"{C.W}     Liên hệ admin qua Zalo Group{C.E}")
+    print(f"{C.G}     👉 Link: zalo.me/g/olmmaster{C.E}")
+    print(f"{C.C}{'─' * w()}{C.E}")
+    print()
+    print(f"{C.Y}  ℹ️  Sau khi đăng ký:{C.E}")
+    print(f"{C.W}     1. Admin thêm username OLM của bạn vào hệ thống{C.E}")
+    print(f"{C.W}     2. Đăng nhập bằng tài khoản đã đăng ký{C.E}")
+    print(f"{C.W}     3. Tool tự động nhận diện VIP{C.E}")
+    print(f"{C.W}     4. Hưởng unlimited lượt sử dụng!{C.E}")
+    print()
+    input(f"{C.Y}Nhấn Enter để quay lại...{C.E}")
 
 # ========== LOAD & RUN ==========
 def run():
