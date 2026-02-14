@@ -36,7 +36,6 @@ DATA = get_data_dir()
 _h = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()[:8]
 LIC = os.path.join(DATA, f'.{_h}sc')
 SESSION_FILE = os.path.join(DATA, f'.{_h}ss')
-ACCOUNT_FILE = os.path.join(DATA, f'.{_h}acc')
 
 # ========== CRYPTO ==========
 KEY = b'OLM_ULTRA_SECRET_2026'
@@ -69,9 +68,9 @@ def cls():
 
 def banner():
     cls()
-    print(f"\n{C.C}{'═' * 54}{C.E}")
-    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(54)}{C.E}")
-    print(f"{C.C}{'═' * 54}{C.E}\n")
+    print(f"\n{C.C}{'═' * 50}{C.E}")
+    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(50)}{C.E}")
+    print(f"{C.C}{'═' * 50}{C.E}\n")
 
 # ========== SYSTEM ==========
 def ip():
@@ -88,18 +87,6 @@ def gen_key():
     h = hashlib.sha256(unique.encode()).hexdigest()
     return f"OLM-{now:%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
-def load_lic():
-    if not os.path.exists(LIC):
-        return None
-    try:
-        with open(LIC) as f:
-            d = dec(f.read())
-        if d and d.get('remain', 0) > 0:
-            return d
-    except:
-        pass
-    return None
-
 def save_lic(mode, n):
     d = {
         'mode': mode, 'remain': n,
@@ -108,26 +95,6 @@ def save_lic(mode, n):
     }
     d['sig'] = hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}".encode()).hexdigest()[:16]
     with open(LIC, 'w') as f:
-        f.write(enc(d))
-
-# ========== ACCOUNT ==========
-def load_saved_account():
-    if not os.path.exists(ACCOUNT_FILE):
-        return None
-    try:
-        with open(ACCOUNT_FILE) as f:
-            return dec(f.read())
-    except:
-        return None
-
-def save_account(username, password, name):
-    d = {
-        'username': username,
-        'password': password,
-        'name': name,
-        'saved_at': datetime.now().strftime("%d/%m/%Y %H:%M")
-    }
-    with open(ACCOUNT_FILE, 'w') as f:
         f.write(enc(d))
 
 # ========== CHECK VIP ==========
@@ -148,27 +115,12 @@ def check_vip_user(username):
 # ========== LOGIN OLM ==========
 def login_olm():
     banner()
-    print(f"{C.Y}╔════════════════════════════════════════════════════╗{C.E}")
-    print(f"{C.Y}║            ĐĂNG NHẬP TÀI KHOẢN OLM                 ║{C.E}")
-    print(f"{C.Y}╚════════════════════════════════════════════════════╝{C.E}\n")
+    print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
+    print(f"{C.Y}║              ĐĂNG NHẬP TÀI KHOẢN OLM             ║{C.E}")
+    print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
     
-    saved = load_saved_account()
-    if saved:
-        print(f"{C.C}💾 Tài khoản đã lưu:{C.E}")
-        print(f"   👤 {saved.get('name', 'N/A')}")
-        print(f"   📅 {saved.get('saved_at', 'N/A')}\n")
-        
-        use_saved = input(f"{C.Y}Sử dụng tài khoản này? (y/n): {C.E}").strip().lower()
-        if use_saved == 'y':
-            username = saved['username']
-            password = saved['password']
-            print(f"\n{C.G}✓ Sử dụng tài khoản đã lưu{C.E}")
-        else:
-            username = input(f"\n{C.C}👤 Username: {C.E}").strip()
-            password = input(f"{C.C}🔑 Password: {C.E}").strip()
-    else:
-        username = input(f"{C.C}👤 Username: {C.E}").strip()
-        password = input(f"{C.C}🔑 Password: {C.E}").strip()
+    username = input(f"{C.C}👤 Username: {C.E}").strip()
+    password = input(f"{C.C}🔑 Password: {C.E}").strip()
     
     if not username or not password:
         print(f"\n{C.R}✗ Username/Password không được rỗng{C.E}")
@@ -181,9 +133,11 @@ def login_olm():
         session = requests.Session()
         session.headers.update(HEADERS)
         
+        # Get CSRF
         session.get("https://olm.vn/dangnhap", headers=HEADERS, timeout=10)
         csrf = session.cookies.get('XSRF-TOKEN')
         
+        # Login
         payload = {
             '_token': csrf,
             'username': username,
@@ -197,12 +151,14 @@ def login_olm():
         h['x-csrf-token'] = csrf
         session.post("https://olm.vn/post-login", data=payload, headers=h, timeout=10)
         
+        # Check success
         check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS, timeout=10)
         match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
         
         if match and match.group(1).strip():
             user_name = match.group(1).strip()
             
+            # Get user_id
             user_id = None
             cookies = session.cookies.get_dict()
             for cookie_name, cookie_value in cookies.items():
@@ -219,6 +175,7 @@ def login_olm():
                 id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
                 user_id = id_matches[0] if id_matches else username
             
+            # Check VIP
             print(f"{C.Y}⏳ Kiểm tra VIP...{C.E}")
             is_vip = check_vip_user(username)
             
@@ -230,13 +187,7 @@ def login_olm():
             else:
                 print(f"{C.Y}📦 FREE: 4 lượt/ngày{C.E}\n")
             
-            if not saved or saved.get('username') != username:
-                save_choice = input(f"{C.Y}Lưu tài khoản này? (y/n): {C.E}").strip().lower()
-                if save_choice == 'y':
-                    save_account(username, password, user_name)
-                    print(f"{C.G}✓ Đã lưu tài khoản{C.E}\n")
-            
-            time.sleep(1)
+            time.sleep(1.5)
             return session, user_id, user_name, is_vip
         else:
             print(f"\n{C.R}✗ Sai username/password{C.E}")
@@ -266,22 +217,19 @@ def get_key():
             time.sleep(2)
             continue
         
-        print(f"{C.C}{'─' * 54}{C.E}")
+        print(f"{C.C}{'─' * 50}{C.E}")
         print(f"{C.G}🔗 Link: {link}{C.E}")
-        print(f"{C.C}{'─' * 54}{C.E}\n")
+        print(f"{C.C}{'─' * 50}{C.E}\n")
         
         for i in range(3):
-            inp = input(f"{C.Y}🔑 Mã (r=link mới | 0=thoát): {C.E}").strip()
-            
-            if inp == '0':
-                return False
+            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
             
             if inp.lower() == 'r':
                 break
             
             if inp == k or inp.upper() == "ADMIN_VIP_2026":
                 save_lic("FREE", 4)
-                print(f"{C.G}✓ Kích hoạt thành công!{C.E}\n")
+                print(f"{C.G}✓ OK{C.E}\n")
                 time.sleep(1)
                 return True
             
@@ -301,6 +249,7 @@ def run_tool(session, user_id, user_name):
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
         
+        # Save session
         with open(SESSION_FILE, 'wb') as f:
             pickle.dump({
                 'cookies': session.cookies.get_dict(),
@@ -308,6 +257,7 @@ def run_tool(session, user_id, user_name):
                 'user_name': user_name
             }, f)
         
+        # Save to temp
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
             f.write(r.text)
             temp = f.name
@@ -331,40 +281,31 @@ def run_tool(session, user_id, user_name):
 # ========== MAIN ==========
 if __name__ == "__main__":
     try:
-        while True:
-            lic = load_lic()
-            
-            if lic:
-                session, user_id, user_name, is_vip = login_olm()
-                
-                if session:
-                    run_tool(session, user_id, user_name)
-                    continue
-                else:
-                    continue
-            
-            session, user_id, user_name, is_vip = login_olm()
-            
-            if not session:
-                continue
-            
-            if is_vip:
-                save_lic("VIP", 999999)
-                run_tool(session, user_id, user_name)
-                continue
-            
-            banner()
-            print(f"{C.Y}╔════════════════════════════════════════════════════╗{C.E}")
-            print(f"{C.Y}║              KÍCH HOẠT KEY FREE (4 lượt)           ║{C.E}")
-            print(f"{C.Y}╚════════════════════════════════════════════════════╝{C.E}\n")
-            
-            print(f"{C.C}💎 NÂNG CẤP VIP UNLIMITED:{C.E}")
-            print(f"   📞 Liên hệ Admin qua Zalo để được hỗ trợ")
-            print(f"   🎁 VIP = Không giới hạn lượt + Ưu tiên hỗ trợ\n")
-            print(f"{C.C}{'─' * 54}{C.E}\n")
-            
-            if get_key():
-                run_tool(session, user_id, user_name)
-            
+        # 1. LOGIN
+        session, user_id, user_name, is_vip = login_olm()
+        
+        if not session:
+            print(f"\n{C.R}✗ Không thể đăng nhập{C.E}")
+            time.sleep(2)
+            sys.exit(1)
+        
+        # 2. VIP → Vào tool luôn
+        if is_vip:
+            save_lic("VIP", 999999)
+            run_tool(session, user_id, user_name)
+            sys.exit(0)
+        
+        # 3. FREE → Vượt key
+        banner()
+        print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
+        print(f"{C.Y}║               KÍCH HOẠT KEY FREE                 ║{C.E}")
+        print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
+        
+        if get_key():
+            run_tool(session, user_id, user_name)
+        
+        sys.exit(0)
+        
     except KeyboardInterrupt:
         print(f"\n{C.Y}Tạm biệt!{C.E}")
+        sys.exit(0)
