@@ -78,15 +78,36 @@ def consume_one_attempt():
     d['remain'] -= 1
     
     if d['remain'] <= 0:
-        # Hết lượt
+        # HẾT LƯỢT - Hiển thị 2 lựa chọn
         try:
             os.remove(LICENSE_FILE)
             if os.path.exists(ACCOUNT_FILE):
                 os.remove(ACCOUNT_FILE)
         except:
             pass
-        print(f"\n{Colors.RED}⛔ Đã hết lượt sử dụng!{Colors.END}")
-        return False
+        
+        print()
+        print(f"{Colors.RED}{'═' * 50}{Colors.END}")
+        print(f"{Colors.RED}⛔ ĐÃ HẾT LƯỢT SỬ DỤNG!{Colors.END}")
+        print(f"{Colors.RED}{'═' * 50}{Colors.END}")
+        print()
+        print(f"{Colors.YELLOW}Bạn muốn:{Colors.END}")
+        print(f"{Colors.GREEN}  [1] Quay lại launcher lấy key mới{Colors.END}")
+        print(f"{Colors.RED}  [2] Thoát{Colors.END}")
+        print()
+        
+        choice = input(f"{Colors.YELLOW}Chọn (1/2): {Colors.END}").strip()
+        
+        if choice == '1':
+            # Quay lại launcher
+            print_status("Đang quay lại launcher...", 'refresh', Colors.CYAN)
+            time.sleep(1)
+            sys.exit(0)  # Exit về launcher
+        else:
+            # Thoát hẳn
+            print_status("Tạm biệt!", 'exit', Colors.GREEN)
+            time.sleep(1)
+            sys.exit(0)
     
     # Còn lượt - cập nhật
     from datetime import datetime
@@ -96,11 +117,16 @@ def consume_one_attempt():
     with open(LICENSE_FILE, 'w') as f:
         f.write(enc(d))
     
-    # HIỂN THỊ SỐ LƯỢT CÒN
+    # HIỂN THỊ SỐ LƯỢT CÒN SAU MỖI BÀI
+    print()
     if d['mode'] == 'VIP':
-        print(f"{Colors.GREEN}💎 Còn: Unlimited{Colors.END}")
+        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
+        print(f"{Colors.GREEN}💎 Còn lại: UNLIMITED lượt{Colors.END}")
+        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
     else:
-        print(f"{Colors.CYAN}💎 Còn: {d['remain']} lượt{Colors.END}")
+        print(f"{Colors.CYAN}{'─' * 40}{Colors.END}")
+        print(f"{Colors.CYAN}💎 Còn lại: {d['remain']} lượt{Colors.END}")
+        print(f"{Colors.CYAN}{'─' * 40}{Colors.END}")
     
     return True
 
