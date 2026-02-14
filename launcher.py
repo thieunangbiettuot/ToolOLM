@@ -18,8 +18,32 @@ from pathlib import Path
 
 # ========== CẤU HÌNH ==========
 API_TOKEN = "698b226d9150d31d216157a5"
+API_TOKEN_BACKUP = "698b226d9150d31d216157a5"  # Link4m dự phòng (có thể dùng API khác)
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
+
+# Các dịch vụ rút gọn link dự phòng
+LINK_SERVICES = [
+    {"name": "link4m", "api": "https://link4m.co/api-shorten/v2", "token": API_TOKEN},
+    {"name": "link4m_backup", "api": "https://link4m.co/api-shorten/v2", "token": API_TOKEN_BACKUP},
+    {"name": "cuttly", "api": "https://cutt.ly/api/api.php", "token": ""},  # Nếu có API key
+]
+
+
+# ========== BẢO MẬT NÂNG CAO ==========
+def check_env():
+    """Kiểm tra môi trường chạy"""
+    # Anti-debug
+    import sys
+    if hasattr(sys, 'gettrace') and sys.gettrace():
+        sys.exit(0)
+    
+    # Check virtualenv/sandbox
+    suspicious = ['PYTEST', 'IPYTHON', 'JUPYTER']
+    for s in suspicious:
+        if s in os.environ:
+            time.sleep(3)
+            break
 
 # ========== CÀI THƯ VIỆN ==========
 def install_libs():
@@ -50,8 +74,10 @@ def get_data_dir():
     return str(d)
 
 DATA = get_data_dir()
-LIC = os.path.join(DATA, '.sysconf')
-ACC = os.path.join(DATA, '.usrdata')
+# Tên file ngẫu nhiên dựa trên device
+_h = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()[:8]
+LIC = os.path.join(DATA, f'.{_h}sc')
+ACC = os.path.join(DATA, f'.{_h}ud')
 
 # ========== MÃ HÓA ==========
 KEY = b'OLM_ULTRA_SECRET_2026'
@@ -128,9 +154,15 @@ def load_lic():
         if datetime.strptime(d['expire'], "%d/%m/%Y").date() != datetime.now().date():
             return None
         
-        # Check device
-        if d['ip'] != ip() or d['dev'] != dev() or d['hw'] != hw():
-            msg("Thiết bị thay đổi! Lấy key mới.", C.Y)
+        # CHECK IP - ĐỔI IP = PHẢI VƯỢT LINK LẠI
+        if d['ip'] != ip():
+            # Xóa key cũ
+            try:
+                os.remove(LIC)
+                if os.path.exists(ACC):
+                    os.remove(ACC)
+            except:
+                pass
             return None
         
         if d.get('remain', 0) > 0:
@@ -144,7 +176,9 @@ def save_lic(mode, n):
     d = {
         'mode': mode, 'remain': n,
         'expire': datetime.now().strftime("%d/%m/%Y"),
-        'ip': ip(), 'dev': dev(), 'hw': hw()
+        'ip': ip(),
+        'dev': '',  # Không dùng
+        'hw': ''    # Không dùng
     }
     d['sig'] = sig(d)
     
@@ -156,7 +190,7 @@ def use_lic():
     """Trừ lượt - GỌI SAU KHI LÀM XONG BÀI"""
     d = load_lic()
     if not d:
-        return False
+        return False, 0
     
     d['remain'] -= 1
     
@@ -168,13 +202,13 @@ def use_lic():
                 os.remove(ACC)
         except:
             pass
-        return False  # Hết lượt
+        return False, 0  # Hết lượt
     
     # Còn lượt - cập nhật
     d['sig'] = sig(d)
     with open(LIC, 'w') as f:
         f.write(enc(d))
-    return True
+    return True, d['remain']  # Trả về số lượt còn
 
 # ========== ACCOUNT ==========
 def load_acc():
@@ -199,6 +233,7 @@ def clear_acc():
 def gen_key():
     h = hashlib.sha256(f"{dev()}{hw()}{datetime.now():%d%m%Y}".encode()).hexdigest()
     return f"OLM-{datetime.now():%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
+
 
 # ========== KÍCH HOẠT ==========
 def activate():
@@ -240,39 +275,94 @@ def activate():
 
 def get_free():
     banner()
-    k = gen_key()  # KEY MỚI mỗi lần
-    msg("Tạo link...", C.C)
     
-    try:
-        url = f"{URL_BLOG}?ma={k}"
-        api = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={requests.utils.quote(url)}"
-        r = requests.get(api, timeout=10)
-        link = r.json().get('shortenedUrl', url) if r.json().get('status') == 'success' else url
-    except:
-        link = f"{URL_BLOG}?ma={k}"
-    
-    print(f"\n{C.C}{'─' * w()}{C.E}")
-    print(f"{C.G}  Link: {C.C}{link}{C.E}")
-    print(f"{C.C}{'─' * w()}{C.E}\n")
-    
-    for i in range(3):
-        inp = input(f"{C.Y}  Mã: {C.E}").strip()
+    # Cho phép tạo link mới nhiều lần
+    while True:
+        k = gen_key()  # Tạo key MỚI mỗi lần
         
-        if inp == k or inp.upper() == "ADMIN_VIP_2026":
-            msg("Xác thực...", C.C)
-            time.sleep(1)
+        msg("Đang tạo link...", C.C)
+        
+        # Thử rút gọn qua các service
+        link = None
+        
+        for service in LINK_SERVICES:
+            try:
+                url = f"{URL_BLOG}?ma={k}"
+                
+                if service['name'].startswith('link4m'):
+                    api_url = f"{service['api']}?api={service['token']}&url={requests.utils.quote(url)}"
+                    r = requests.get(api_url, timeout=8)
+                    
+                    if r.status_code == 200:
+                        result = r.json()
+                        if result.get('status') == 'success':
+                            link = result.get('shortenedUrl')
+                            break
+                
+                elif service['name'] == 'cuttly' and service['token']:
+                    api_url = f"{service['api']}?key={service['token']}&short={requests.utils.quote(url)}"
+                    r = requests.get(api_url, timeout=8)
+                    
+                    if r.status_code == 200:
+                        result = r.json()
+                        if result.get('url', {}).get('status') == 7:
+                            link = result['url']['shortLink']
+                            break
             
-            if save_lic("VIP" if inp.upper() == "ADMIN_VIP_2026" else "FREE", 999999 if inp.upper() == "ADMIN_VIP_2026" else 4):
-                msg("OK!", C.G)
+            except:
+                continue
+        
+        # Nếu tất cả fail
+        if not link:
+            print()
+            msg("❌ Không thể tạo link!", C.R)
+            retry = input(f"{C.Y}Thử lại? (y/n): {C.E}").strip().lower()
+            if retry != 'y':
+                return False
+            time.sleep(1)
+            continue  # Tạo link mới
+        
+        # Hiển thị link
+        print(f"\n{C.C}{'─' * w()}{C.E}")
+        print(f"{C.G}  Link: {C.C}{link}{C.E}")
+        print(f"{C.C}{'─' * w()}{C.E}")
+        print(f"{C.Y}  💡 Không vượt được? Nhấn 'r' để tạo link mới{C.E}")
+        print(f"{C.C}{'─' * w()}{C.E}\n")
+        
+        # Nhập mã (3 lần thử)
+        fail_count = 0
+        for i in range(3):
+            inp = input(f"{C.Y}  Mã (hoặc 'r' để đổi link): {C.E}").strip()
+            
+            # Tạo link mới
+            if inp.lower() == 'r':
+                msg("Đang tạo link mới...", C.C)
                 time.sleep(1)
-                return True
-        else:
-            if i < 2:
-                msg(f"Sai! Còn {2-i} lần", C.R)
-    
-    msg("Hết lượt!", C.R)
-    time.sleep(1)
-    return False
+                break  # Quay lại vòng while để tạo link mới
+            
+            # Kiểm tra mã
+            if inp == k or inp.upper() == "ADMIN_VIP_2026":
+                msg("Xác thực...", C.C)
+                time.sleep(1 + fail_count)
+                
+                if save_lic("VIP" if inp.upper() == "ADMIN_VIP_2026" else "FREE", 999999 if inp.upper() == "ADMIN_VIP_2026" else 4):
+                    msg("✓ Thành công!", C.G)
+                    time.sleep(1)
+                    return True
+            else:
+                fail_count += 1
+                time.sleep(fail_count)
+                if i < 2:
+                    msg(f"❌ Sai! Còn {2-i} lần", C.R)
+        
+        # Hết 3 lần thử
+        if inp.lower() != 'r':
+            msg("Hết lượt thử!", C.R)
+            retry = input(f"\n{C.Y}Tạo link mới? (y/n): {C.E}").strip().lower()
+            if retry != 'y':
+                time.sleep(2)
+                return False
+            time.sleep(1)
 
 def get_vip():
     banner()
@@ -330,6 +420,7 @@ def run():
 # ========== MAIN ==========
 if __name__ == "__main__":
     try:
+        check_env()  # Kiểm tra môi trường
         install_libs()
         
         while True:
