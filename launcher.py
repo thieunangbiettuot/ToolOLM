@@ -1,39 +1,43 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""OLM Master Pro - Launcher"""
+"""OLM Master Pro - Launcher v3.0 Final"""
 
-import os, sys, time, json, requests, hashlib, uuid, socket, base64, subprocess, tempfile
+import os, sys, time, json, requests, hashlib, uuid, socket, base64, subprocess, tempfile, re, pickle
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# ========== CẤU HÌNH ==========
+# ========== CONFIG ==========
 API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
+URL_VIP_USERS = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"
 
-# ========== DATA ==========
+HEADERS = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'accept': 'application/json, text/javascript, */*; q=0.01',
+    'x-requested-with': 'XMLHttpRequest',
+}
+
+# ========== DATA DIR ==========
 def get_data_dir():
     p = sys.platform
     if p == 'win32':
-        base = os.getenv('LOCALAPPDATA') or os.getenv('APPDATA') or os.path.expanduser('~')
-        d = Path(base) / 'Microsoft' / 'Windows' / 'INetCache' / 'IE'
+        d = Path(os.getenv('LOCALAPPDATA', os.path.expanduser('~'))) / 'Microsoft' / 'Windows' / 'INetCache' / 'IE'
     elif p == 'darwin':
         d = Path.home() / 'Library' / 'Application Support' / 'com.apple.Safari'
-    elif p.startswith('linux'):
-        if 'ANDROID_ROOT' in os.environ:
-            d = Path(os.getenv('HOME', '/data/data/com.termux/files/home')) / '.cache' / 'google-chrome'
-        else:
-            d = Path.home() / '.cache' / 'mozilla' / 'firefox'
+    elif 'ANDROID_ROOT' in os.environ:
+        d = Path(os.getenv('HOME', '/data/data/com.termux/files/home')) / '.cache' / 'google-chrome'
     else:
-        d = Path.home() / '.config' / 'systemd'
+        d = Path.home() / '.cache' / 'mozilla' / 'firefox'
     d.mkdir(parents=True, exist_ok=True)
     return str(d)
 
 DATA = get_data_dir()
 _h = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()[:8]
 LIC = os.path.join(DATA, f'.{_h}sc')
+SESSION_FILE = os.path.join(DATA, f'.{_h}ss')
 
-# ========== MÃ HÓA ==========
+# ========== CRYPTO ==========
 KEY = b'OLM_ULTRA_SECRET_2026'
 
 def enc(obj):
@@ -44,7 +48,19 @@ def enc(obj):
     noise = hashlib.md5(chk.encode()).hexdigest()[:8]
     return f"{noise}{chk}{b85}{noise[::-1]}"
 
-# ========== MÀU ==========
+def dec(s):
+    try:
+        s = s[8:-8]
+        chk, b85 = s[:12], s[12:]
+        if hashlib.sha256(b85.encode()).hexdigest()[:12] != chk:
+            return None
+        xor = base64.b85decode(b85)
+        txt = bytes(xor[i] ^ KEY[i % len(KEY)] for i in range(len(xor)))
+        return json.loads(txt)
+    except:
+        return None
+
+# ========== UI ==========
 C = type('C', (), {'R':'\033[91m','G':'\033[92m','Y':'\033[93m','B':'\033[94m','C':'\033[96m','W':'\033[97m','E':'\033[0m'})()
 
 def cls():
@@ -52,9 +68,9 @@ def cls():
 
 def banner():
     cls()
-    print(f"\n{C.C}═══════════════════════════════{C.E}")
-    print(f"{C.B}  OLM MASTER PRO v3.0{C.E}")
-    print(f"{C.C}═══════════════════════════════{C.E}\n")
+    print(f"\n{C.C}{'═' * 50}{C.E}")
+    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(50)}{C.E}")
+    print(f"{C.C}{'═' * 50}{C.E}\n")
 
 # ========== SYSTEM ==========
 def ip():
@@ -81,12 +97,113 @@ def save_lic(mode, n):
     with open(LIC, 'w') as f:
         f.write(enc(d))
 
+# ========== CHECK VIP ==========
+def check_vip_user(username):
+    try:
+        r = requests.get(URL_VIP_USERS, timeout=5)
+        if r.status_code == 200:
+            vip_users = []
+            for line in r.text.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    vip_users.append(line.lower())
+            return username.lower() in vip_users
+    except:
+        pass
+    return False
+
+# ========== LOGIN OLM ==========
+def login_olm():
+    banner()
+    print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
+    print(f"{C.Y}║              ĐĂNG NHẬP TÀI KHOẢN OLM             ║{C.E}")
+    print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
+    
+    username = input(f"{C.C}👤 Username: {C.E}").strip()
+    password = input(f"{C.C}🔑 Password: {C.E}").strip()
+    
+    if not username or not password:
+        print(f"\n{C.R}✗ Username/Password không được rỗng{C.E}")
+        time.sleep(2)
+        return None, None, None, False
+    
+    print(f"\n{C.Y}⏳ Đang đăng nhập...{C.E}")
+    
+    try:
+        session = requests.Session()
+        session.headers.update(HEADERS)
+        
+        # Get CSRF
+        session.get("https://olm.vn/dangnhap", headers=HEADERS, timeout=10)
+        csrf = session.cookies.get('XSRF-TOKEN')
+        
+        # Login
+        payload = {
+            '_token': csrf,
+            'username': username,
+            'password': password,
+            'remember': 'true',
+            'device_id': '0b48f4d6204591f83dc40b07f07af7d4',
+            'platform': 'web'
+        }
+        
+        h = HEADERS.copy()
+        h['x-csrf-token'] = csrf
+        session.post("https://olm.vn/post-login", data=payload, headers=h, timeout=10)
+        
+        # Check success
+        check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS, timeout=10)
+        match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
+        
+        if match and match.group(1).strip():
+            user_name = match.group(1).strip()
+            
+            # Get user_id
+            user_id = None
+            cookies = session.cookies.get_dict()
+            for cookie_name, cookie_value in cookies.items():
+                if 'remember_web' in cookie_name and '%7C' in cookie_value:
+                    try:
+                        parts = cookie_value.split('%7C')
+                        if parts and parts[0].isdigit():
+                            user_id = parts[0]
+                            break
+                    except:
+                        pass
+            
+            if not user_id:
+                id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
+                user_id = id_matches[0] if id_matches else username
+            
+            # Check VIP
+            print(f"{C.Y}⏳ Kiểm tra VIP...{C.E}")
+            is_vip = check_vip_user(username)
+            
+            print(f"\n{C.G}✓ Đăng nhập thành công{C.E}")
+            print(f"{C.C}👤 Tên: {user_name}{C.E}")
+            
+            if is_vip:
+                print(f"{C.G}👑 VIP: UNLIMITED{C.E}\n")
+            else:
+                print(f"{C.Y}📦 FREE: 4 lượt/ngày{C.E}\n")
+            
+            time.sleep(1.5)
+            return session, user_id, user_name, is_vip
+        else:
+            print(f"\n{C.R}✗ Sai username/password{C.E}")
+            time.sleep(2)
+            return None, None, None, False
+            
+    except Exception as e:
+        print(f"\n{C.R}✗ Lỗi: {e}{C.E}")
+        time.sleep(2)
+        return None, None, None, False
+
 # ========== GET KEY ==========
 def get_key():
     while True:
         k = gen_key()
         
-        # Tạo link
         try:
             url = f"{URL_BLOG}?ma={k}"
             api = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={requests.utils.quote(url)}"
@@ -96,87 +213,95 @@ def get_key():
             link = None
         
         if not link:
-            print(f"{C.R}  • Lỗi tạo link!{C.E}")
-            retry = input(f"{C.Y}Thử lại? (y/n): {C.E}").lower().strip()
-            if retry != 'y':
-                return False
+            print(f"{C.R}✗ Lỗi tạo link{C.E}")
+            time.sleep(2)
             continue
         
-        print(f"\n{C.C}───────────────────────────────{C.E}")
-        print(f"{C.G}Link: {link}{C.E}")
-        print(f"{C.C}───────────────────────────────{C.E}\n")
+        print(f"{C.C}{'─' * 50}{C.E}")
+        print(f"{C.G}🔗 Link: {link}{C.E}")
+        print(f"{C.C}{'─' * 50}{C.E}\n")
         
-        # Nhập mã
         for i in range(3):
-            inp = input(f"{C.Y}Mã (r=đổi link): {C.E}").strip()
+            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
             
             if inp.lower() == 'r':
                 break
             
             if inp == k or inp.upper() == "ADMIN_VIP_2026":
-                is_vip = inp.upper() == "ADMIN_VIP_2026"
-                save_lic("VIP" if is_vip else "FREE", 999999 if is_vip else 4)
-                print(f"{C.G}  • OK{C.E}")
+                save_lic("FREE", 4)
+                print(f"{C.G}✓ OK{C.E}\n")
                 time.sleep(1)
                 return True
             
             if i < 2:
-                print(f"{C.R}  • Sai ({2-i} lần){C.E}")
+                print(f"{C.R}✗ Sai ({2-i} lần){C.E}")
             time.sleep(i + 1)
         
         if inp.lower() != 'r':
-            retry = input(f"\n{C.Y}Link mới? (y/n): {C.E}").lower().strip()
-            if retry != 'y':
-                return False
+            return False
 
-# ========== RUN ==========
-def run():
+# ========== RUN TOOL ==========
+def run_tool(session, user_id, user_name):
     banner()
-    print(f"{C.C}  • Đang tải...{C.E}")
+    print(f"{C.C}⏳ Đang tải tool...{C.E}")
     
     try:
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
         
+        # Save session
+        with open(SESSION_FILE, 'wb') as f:
+            pickle.dump({
+                'cookies': session.cookies.get_dict(),
+                'user_id': user_id,
+                'user_name': user_name
+            }, f)
+        
+        # Save to temp
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
             f.write(r.text)
             temp = f.name
         
         env = os.environ.copy()
         env['OLM_LICENSE_FILE'] = LIC
+        env['OLM_SESSION_FILE'] = SESSION_FILE
         
         subprocess.run([sys.executable, temp], env=env)
         
         try:
             os.remove(temp)
+            os.remove(SESSION_FILE)
         except:
             pass
+            
     except Exception as e:
-        print(f"{C.R}  • Lỗi: {e}{C.E}")
+        print(f"{C.R}✗ Lỗi: {e}{C.E}")
         input("\nEnter...")
 
 # ========== MAIN ==========
 if __name__ == "__main__":
     try:
         while True:
+            # 1. LOGIN TRƯỚC
+            session, user_id, user_name, is_vip = login_olm()
+            
+            if not session:
+                continue
+            
+            # 2. VIP → Vào tool luôn
+            if is_vip:
+                save_lic("VIP", 999999)
+                run_tool(session, user_id, user_name)
+                continue
+            
+            # 3. FREE → Vượt key
             banner()
-            print(f"{C.Y}[1] Key FREE (4 lượt){C.E}")
-            print(f"{C.G}[2] VIP Info{C.E}")
-            print(f"{C.R}[0] Thoát{C.E}\n")
+            print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
+            print(f"{C.Y}║               KÍCH HOẠT KEY FREE                 ║{C.E}")
+            print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
             
-            ch = input(f"{C.Y}Chọn: {C.E}").strip()
+            if get_key():
+                run_tool(session, user_id, user_name)
             
-            if ch == '1':
-                if get_key():
-                    run()
-            elif ch == '2':
-                banner()
-                print(f"{C.G}═══════════════════════════════{C.E}")
-                print(f"{C.G}  VIP: Unlimited{C.E}")
-                print(f"{C.G}  Zalo: zalo.me/g/olmmaster{C.E}")
-                print(f"{C.G}═══════════════════════════════{C.E}\n")
-                input(f"{C.Y}Enter...{C.E}")
-            elif ch == '0':
-                sys.exit(0)
     except KeyboardInterrupt:
-        print(f"\n{C.Y}Bye!{C.E}")
+        print(f"\n{C.Y}Tạm biệt!{C.E}")
