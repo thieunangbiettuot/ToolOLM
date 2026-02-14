@@ -1,22 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-╔══════════════════════════════════════════════════════════════╗
-║                                                              ║
-║              OLM MASTER PRO - AUTO SOLVER v3.0              ║
-║                                                              ║
-║                    Created by: Tuấn Anh                      ║
-║                                                              ║
-╚══════════════════════════════════════════════════════════════╝
-"""
+"""OLM Master Pro v3.0"""
 
 import os, sys, time, json, random, requests, re, subprocess, hashlib, base64, pickle
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 
-# ========== LOAD SESSION & LICENSE ==========
+# ENV vars
 LICENSE_FILE = os.getenv('OLM_LICENSE_FILE', 'olm_license.dat')
-SESSION_FILE = os.getenv('OLM_SESSION_FILE', 'session.dat')
+SESSION_FILE = os.getenv('OLM_SESSION_FILE', 'session.dat')  
 LOCK_FILE = os.getenv('OLM_LOCK_FILE', 'lock.dat')
 
 KEY = b'OLM_ULTRA_SECRET_2026'
@@ -62,17 +54,13 @@ def load_lic():
         return None
 
 def consume_one_attempt():
-    """Trừ lượt SAU KHI hoàn thành"""
     d = load_lic()
     if not d:
         return False
-    
     if d.get('mode') == 'VIP':
-        print(f"{Colors.GREEN}💎 VIP Unlimited{Colors.END}")
+        print(f"{{Colors.GREEN}}💎 VIP{{Colors.END}}")
         return True
-    
     d['remain'] -= 1
-    
     if d['remain'] <= 0:
         try:
             os.remove(LICENSE_FILE)
@@ -80,25 +68,21 @@ def consume_one_attempt():
                 os.remove(LOCK_FILE)
         except:
             pass
-        
         print()
-        sep = "═" * 50
-        print(f"{Colors.RED}{sep}{Colors.END}")
-        print(f"{Colors.RED}⛔ HẾT LƯỢT{Colors.END}")
-        print(f"{Colors.RED}{sep}{Colors.END}")
+        print(f"{{Colors.RED}}{{'═' * 50}}{{Colors.END}}")
+        print(f"{{Colors.RED}}⛔ HẾT LƯỢT{{Colors.END}}")
+        print(f"{{Colors.RED}}{{'═' * 50}}{{Colors.END}}")
         print()
-        print(f"{Colors.YELLOW}[1] Quay launcher lấy key mới{Colors.END}")
-        print(f"{Colors.RED}[2] Thoát{Colors.END}")
+        print(f"{{Colors.YELLOW}}[1] Quay launcher{{Colors.END}}")
+        print(f"{{Colors.RED}}[2] Thoát{{Colors.END}}")
         print()
-        choice = input(f"{Colors.YELLOW}Chọn: {Colors.END}").strip()
+        input(f"{{Colors.YELLOW}}Chọn: {{Colors.END}}")
         sys.exit(0)
-    
-    sig = hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}".encode()).hexdigest()[:16]
+    sig = hashlib.sha256(f"{{d['mode']}}{{d['expire']}}{{d['ip']}}".encode()).hexdigest()[:16]
     d['sig'] = sig
     with open(LICENSE_FILE, 'w') as f:
         f.write(enc(d))
-    
-    print(f"{Colors.CYAN}💎 Còn: {d['remain']} lượt{Colors.END}")
+    print(f"{{Colors.CYAN}}💎 Còn: {{d['remain']}}{{Colors.END}}")
     return True
 
 def clear_lock():
@@ -807,8 +791,8 @@ def submit_assignment(session, assignment, user_id):
         return False
 
 def handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
-    """Xử lý video - CHỈ METHOD 1"""
-    print_status("Đang xử lý video...", 'video', Colors.BLUE)
+    """Xử lý video - Method 1"""
+    print_status("Xử lý video...", 'video', Colors.BLUE)
     return try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
 
 def try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
@@ -1132,11 +1116,14 @@ def solve_from_link(session, user_id):
 
 # ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH ==========
 def solve_specific_from_list(session, user_id):
-    """Giải bài cụ thể - 0/1,3,5/1"""
+    """Giải bài cụ thể từ danh sách"""
     print_header("GIẢI BÀI CỤ THỂ")
     
-    pages_input = input(f"{Colors.YELLOW}Số trang quét (3): {Colors.END}").strip()
-    pages_to_scan = int(pages_input) if pages_input.isdigit() and int(pages_input) > 0 else 3
+    # Hỏi số trang
+    pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
+    pages_to_scan = 3
+    if pages_input.isdigit() and int(pages_input) > 0:
+        pages_to_scan = int(pages_input)
     
     assignments = get_assignments_fixed(session, pages_to_scan)
     if not assignments:
@@ -1145,87 +1132,23 @@ def solve_specific_from_list(session, user_id):
     
     display_assignments_table(assignments)
     
-    print()
-    print(f"{Colors.CYAN}╔{'═' * 40}╗{Colors.END}")
-    print(f"{Colors.CYAN}║ {Colors.YELLOW}0{Colors.END}     → Tất cả")
-    print(f"{Colors.CYAN}║ {Colors.YELLOW}1,3,5{Colors.END} → Nhiều bài")
-    print(f"{Colors.CYAN}║ {Colors.YELLOW}1{Colors.END}     → 1 bài")
-    print(f"{Colors.CYAN}╚{'═' * 40}╝{Colors.END}")
+    # Chọn bài để giải
+    try:
+        selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (1-{len(assignments)}): {Colors.END}").strip()
+        if selection.isdigit():
+            idx = int(selection) - 1
+            if 0 <= idx < len(assignments):
+                success = submit_assignment(session, assignments[idx], user_id)
+                return success
+            else:
+                print_status("Số bài không hợp lệ", 'error', Colors.RED)
+        else:
+            print_status("Vui lòng nhập số", 'error', Colors.RED)
+    except:
+        print_status("Lỗi chọn bài", 'error', Colors.RED)
     
-    sel = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
-    
-    indices = []
-    if sel == '0':
-        indices = list(range(len(assignments)))
-    elif ',' in sel:
-        for x in sel.split(','):
-            if x.strip().isdigit():
-                idx = int(x.strip()) - 1
-                if 0 <= idx < len(assignments):
-                    indices.append(idx)
-    elif sel.isdigit():
-        idx = int(sel) - 1
-        if 0 <= idx < len(assignments):
-            indices.append(idx)
-    
-    if not indices:
-        print_status("Không hợp lệ", 'error', Colors.RED)
-        wait_enter()
-        return False
-    
-    # CHỌN ĐIỂM 1 LẦN
-    print()
-    print(f"{Colors.CYAN}╔{'═' * 40}╗{Colors.END}")
-    print(f"{Colors.CYAN}║ {Colors.GREEN}[1]{Colors.END} 100 điểm")
-    print(f"{Colors.CYAN}║ {Colors.GREEN}[2]{Colors.END} Tùy chọn")
-    print(f"{Colors.CYAN}╚{'═' * 40}╝{Colors.END}")
-    
-    ch = input(f"{Colors.YELLOW}Chọn: {Colors.END}").strip()
-    
-    if ch == '2':
-        while True:
-            try:
-                score = int(input(f"{Colors.YELLOW}Điểm (1-100): {Colors.END}"))
-                if 1 <= score <= 100:
-                    target_score = score
-                    break
-            except:
-                pass
-    else:
-        target_score = 100
-    
-    print(f"\n{Colors.CYAN}Giải {len(indices)} bài với {target_score} điểm{Colors.END}")
-    time.sleep(1)
-    
-    # GIẢI
-    print_header(f"GIẢI {len(indices)} BÀI")
-    done = 0
-    
-    for i, idx in enumerate(indices, 1):
-        print(f"\n{Colors.YELLOW}{'━' * 40}{Colors.END}")
-        print(f"{Colors.CYAN}Bài {i}/{len(indices)}{Colors.END}")
-        print(f"{Colors.YELLOW}{'━' * 40}{Colors.END}")
-        
-        assignment = assignments[idx]
-        
-        # DÙNG submit_assignment GỐC (100% logic gốc)
-        success = submit_assignment(session, assignment, user_id)
-        
-        # TRỪ LƯỢT SAU KHI XONG
-        if success:
-            done += 1
-            if not consume_one_attempt():
-                break
-        
-        if i < len(indices):
-            time.sleep(random.randint(2, 4))
-    
-    print()
-    print(f"{Colors.GREEN}{'═' * 40}{Colors.END}")
-    print_status(f"Hoàn thành {done}/{len(indices)}", 'success', Colors.GREEN)
-    print(f"{Colors.GREEN}{'═' * 40}{Colors.END}")
     wait_enter()
-    return True
+    return False
 
 def process_all_assignments(session, assignments, user_id):
     """Xử lý tất cả bài tập"""
@@ -1269,7 +1192,7 @@ def main_menu(session, user_id, user_name):
         print()
         
         menu_options = {
-            '1': f"{ICONS['brain']} Giải bài cụ thể (0=tất cả, 1,3,5=nhiều)",
+            '1': f"{ICONS['brain']} Giải bài cụ thể",
             '2': f"{ICONS['link']} Giải từ link",
             '3': f"{ICONS['refresh']} Đổi tài khoản",
             '4': f"{ICONS['exit']} Thoát"
@@ -1287,7 +1210,7 @@ def main_menu(session, user_id, user_name):
         
         elif choice == '3':
             clear_lock()
-            print_status("Đã xóa liên kết tài khoản", 'success', Colors.GREEN)
+            print_status("Đã xóa liên kết", 'success', Colors.GREEN)
             time.sleep(1)
             sys.exit(0)
         
