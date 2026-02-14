@@ -85,6 +85,7 @@ def consume_one_attempt():
                 os.remove(ACCOUNT_FILE)
         except:
             pass
+        print(f"\n{Colors.RED}⛔ Đã hết lượt sử dụng!{Colors.END}")
         return False
     
     # Còn lượt - cập nhật
@@ -94,10 +95,39 @@ def consume_one_attempt():
     
     with open(LICENSE_FILE, 'w') as f:
         f.write(enc(d))
+    
+    # HIỂN THỊ SỐ LƯỢT CÒN
+    if d['mode'] == 'VIP':
+        print(f"{Colors.GREEN}💎 Còn: Unlimited{Colors.END}")
+    else:
+        print(f"{Colors.CYAN}💎 Còn: {d['remain']} lượt{Colors.END}")
+    
     return True
 
 from bs4 import BeautifulSoup
 from datetime import datetime
+
+
+# ========== BẢO MẬT ==========
+def verify_integrity():
+    """Kiểm tra tính toàn vẹn"""
+    import sys
+    # Anti-debug
+    if hasattr(sys, 'gettrace') and sys.gettrace():
+        sys.exit(0)
+    
+    # Verify license signature
+    d = load_lic()
+    if d:
+        sig_str = f"{d['mode']}{d['expire']}{d['ip']}{d.get('dev', '')}{d.get('hw', '')}"
+        expected = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
+        if d.get('sig') != expected:
+            # File bị sửa
+            try:
+                os.remove(LICENSE_FILE)
+            except:
+                pass
+            sys.exit(0)
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -292,8 +322,23 @@ HEADERS = {
     'referer': 'https://olm.vn/'
 }
 
+# Rate limit tracker
+_login_fails = 0
+_last_fail_time = 0
+
 def login_olm():
     """Đăng nhập OLM"""
+    global _login_fails, _last_fail_time
+    
+    # Anti brute-force
+    if _login_fails >= 3:
+        elapsed = time.time() - _last_fail_time
+        if elapsed < 60:
+            wait = int(60 - elapsed)
+            print_status(f"Vui lòng chờ {wait}s...", 'warning', Colors.YELLOW)
+            time.sleep(wait)
+            _login_fails = 0
+    
     print_header("ĐĂNG NHẬP OLM")
     
     # Chọn tài khoản đã lưu
@@ -391,8 +436,16 @@ def login_olm():
             return session, user_id, user_name
             
         else:
+            global _login_fails, _last_fail_time
+            _login_fails += 1
+            _last_fail_time = time.time()
+            
             print_status("ĐĂNG NHẬP THẤT BẠI!", 'error', Colors.RED)
             print_status("Sai tên đăng nhập hoặc mật khẩu", 'error', Colors.RED)
+            
+            if _login_fails >= 3:
+                print_status("Quá nhiều lần thất bại! Vui lòng chờ 60s", 'warning', Colors.YELLOW)
+            
             wait_enter()
             return None, None, None
             
@@ -560,7 +613,7 @@ def get_assignments_fixed(session, pages_to_scan=5):
                             # KHÔNG CÓ SPAN -> XÉT LÀ CHƯA LÀM
                             should_process = True
                         else:
-                            # Có span -> kiểm tra nội
+                            # Có span -> kiểm tra nội dung
                             for span in status_spans:
                                 span_text = span.get_text(strip=True).lower()
                                 if "chưa" in span_text or "chưa nộp" in span_text or "làm tiếp" in span_text:
@@ -963,7 +1016,7 @@ def submit_assignment(session, assignment, user_id):
             'list_ans': ','.join(list_ans),
             'result': '[]',
             'ans': '[]'
-        }
+    }
         
         # GỬI REQUEST
         print_status("Đang nộp bài...", 'upload', Colors.YELLOW)
@@ -1323,8 +1376,8 @@ def solve_from_link(session, user_id):
             success = submit_assignment(session, assignment, user_id)
             # TRỪ LƯỢT SAU KHI XONG
             if success:
+                print_status("✓ Thành công!", 'success', Colors.GREEN)
                 if not consume_one_attempt():
-                    print_status("⛔ Hết lượt!", 'error', Colors.RED)
                     sys.exit(0)
             return success
         else:
@@ -1473,9 +1526,10 @@ def solve_specific_from_list(session, user_id):
         # TRỪ LƯỢT SAU KHI HOÀN THÀNH
         if success:
             done += 1
+            print_status("✓ Thành công!", 'success', Colors.GREEN)
             if not consume_one_attempt():
                 print()
-                print_status(f"⛔ Đã hết lượt! Giải được {done}/{len(indices)}", 'warning', Colors.YELLOW)
+                print_status(f"⛔ Giải được {done}/{len(indices)} bài", 'warning', Colors.YELLOW)
                 wait_enter()
                 sys.exit(0)
         
@@ -1526,6 +1580,7 @@ def process_all_assignments(session, assignments, user_id):
 # ========== MENU CHÍNH ==========
 def main_menu(session, user_id, user_name):
     """Menu chính"""
+    verify_integrity()  # Check integrity
     
     while True:
         print_header("MENU CHÍNH")
