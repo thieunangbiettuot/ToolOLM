@@ -36,6 +36,7 @@ DATA = get_data_dir()
 _h = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()[:8]
 LIC = os.path.join(DATA, f'.{_h}sc')
 SESSION_FILE = os.path.join(DATA, f'.{_h}ss')
+ACCOUNT_FILE = os.path.join(DATA, f'.{_h}acc')
 
 # ========== CRYPTO ==========
 KEY = b'OLM_ULTRA_SECRET_2026'
@@ -68,9 +69,9 @@ def cls():
 
 def banner():
     cls()
-    print(f"\n{C.C}{'═' * 50}{C.E}")
-    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(50)}{C.E}")
-    print(f"{C.C}{'═' * 50}{C.E}\n")
+    print(f"\n{C.C}{'═' * 54}{C.E}")
+    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(54)}{C.E}")
+    print(f"{C.C}{'═' * 54}{C.E}\n")
 
 # ========== SYSTEM ==========
 def ip():
@@ -87,6 +88,19 @@ def gen_key():
     h = hashlib.sha256(unique.encode()).hexdigest()
     return f"OLM-{now:%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
+def load_lic():
+    """Kiểm tra license hiện tại"""
+    if not os.path.exists(LIC):
+        return None
+    try:
+        with open(LIC) as f:
+            d = dec(f.read())
+        if d and d.get('remain', 0) > 0:
+            return d
+    except:
+        pass
+    return None
+
 def save_lic(mode, n):
     d = {
         'mode': mode, 'remain': n,
@@ -95,6 +109,28 @@ def save_lic(mode, n):
     }
     d['sig'] = hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}".encode()).hexdigest()[:16]
     with open(LIC, 'w') as f:
+        f.write(enc(d))
+
+# ========== ACCOUNT MANAGEMENT ==========
+def load_saved_account():
+    """Tải tài khoản đã lưu"""
+    if not os.path.exists(ACCOUNT_FILE):
+        return None
+    try:
+        with open(ACCOUNT_FILE) as f:
+            return dec(f.read())
+    except:
+        return None
+
+def save_account(username, password, name):
+    """Lưu tài khoản"""
+    d = {
+        'username': username,
+        'password': password,
+        'name': name,
+        'saved_at': datetime.now().strftime("%d/%m/%Y %H:%M")
+    }
+    with open(ACCOUNT_FILE, 'w') as f:
         f.write(enc(d))
 
 # ========== CHECK VIP ==========
@@ -115,12 +151,28 @@ def check_vip_user(username):
 # ========== LOGIN OLM ==========
 def login_olm():
     banner()
-    print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
-    print(f"{C.Y}║              ĐĂNG NHẬP TÀI KHOẢN OLM             ║{C.E}")
-    print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
+    print(f"{C.Y}╔════════════════════════════════════════════════════╗{C.E}")
+    print(f"{C.Y}║            ĐĂNG NHẬP TÀI KHOẢN OLM                 ║{C.E}")
+    print(f"{C.Y}╚════════════════════════════════════════════════════╝{C.E}\n")
     
-    username = input(f"{C.C}👤 Username: {C.E}").strip()
-    password = input(f"{C.C}🔑 Password: {C.E}").strip()
+    # Kiểm tra tài khoản đã lưu
+    saved = load_saved_account()
+    if saved:
+        print(f"{C.C}💾 Tài khoản đã lưu:{C.E}")
+        print(f"   👤 {saved.get('name', 'N/A')}")
+        print(f"   📅 {saved.get('saved_at', 'N/A')}\n")
+        
+        use_saved = input(f"{C.Y}Sử dụng tài khoản này? (y/n): {C.E}").strip().lower()
+        if use_saved == 'y':
+            username = saved['username']
+            password = saved['password']
+            print(f"\n{C.G}✓ Sử dụng tài khoản đã lưu{C.E}")
+        else:
+            username = input(f"\n{C.C}👤 Username: {C.E}").strip()
+            password = input(f"{C.C}🔑 Password: {C.E}").strip()
+    else:
+        username = input(f"{C.C}👤 Username: {C.E}").strip()
+        password = input(f"{C.C}🔑 Password: {C.E}").strip()
     
     if not username or not password:
         print(f"\n{C.R}✗ Username/Password không được rỗng{C.E}")
@@ -187,7 +239,14 @@ def login_olm():
             else:
                 print(f"{C.Y}📦 FREE: 4 lượt/ngày{C.E}\n")
             
-            time.sleep(1.5)
+            # Hỏi lưu tài khoản
+            if not saved or saved.get('username') != username:
+                save_choice = input(f"{C.Y}Lưu tài khoản này? (y/n): {C.E}").strip().lower()
+                if save_choice == 'y':
+                    save_account(username, password, user_name)
+                    print(f"{C.G}✓ Đã lưu tài khoản{C.E}\n")
+            
+            time.sleep(1)
             return session, user_id, user_name, is_vip
         else:
             print(f"\n{C.R}✗ Sai username/password{C.E}")
@@ -201,6 +260,7 @@ def login_olm():
 
 # ========== GET KEY ==========
 def get_key():
+    """Lấy key FREE"""
     while True:
         k = gen_key()
         
@@ -217,19 +277,22 @@ def get_key():
             time.sleep(2)
             continue
         
-        print(f"{C.C}{'─' * 50}{C.E}")
+        print(f"{C.C}{'─' * 54}{C.E}")
         print(f"{C.G}🔗 Link: {link}{C.E}")
-        print(f"{C.C}{'─' * 50}{C.E}\n")
+        print(f"{C.C}{'─' * 54}{C.E}\n")
         
         for i in range(3):
-            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
+            inp = input(f"{C.Y}🔑 Mã (r=link mới | 0=thoát): {C.E}").strip()
+            
+            if inp == '0':
+                return False
             
             if inp.lower() == 'r':
                 break
             
             if inp == k or inp.upper() == "ADMIN_VIP_2026":
                 save_lic("FREE", 4)
-                print(f"{C.G}✓ OK{C.E}\n")
+                print(f"{C.G}✓ Kích hoạt thành công!{C.E}\n")
                 time.sleep(1)
                 return True
             
@@ -266,8 +329,10 @@ def run_tool(session, user_id, user_name):
         env['OLM_LICENSE_FILE'] = LIC
         env['OLM_SESSION_FILE'] = SESSION_FILE
         
+        # Chạy tool
         subprocess.run([sys.executable, temp], env=env)
         
+        # Cleanup
         try:
             os.remove(temp)
             os.remove(SESSION_FILE)
@@ -282,23 +347,42 @@ def run_tool(session, user_id, user_name):
 if __name__ == "__main__":
     try:
         while True:
-            # 1. LOGIN TRƯỚC
+            # Kiểm tra license hiện tại
+            lic = load_lic()
+            
+            # Nếu có license còn hạn → Login rồi vào tool luôn
+            if lic:
+                session, user_id, user_name, is_vip = login_olm()
+                
+                if session:
+                    run_tool(session, user_id, user_name)
+                    # Sau khi thoát tool → kiểm tra lại license
+                    continue
+                else:
+                    continue
+            
+            # Không có license → Login → Check VIP → Get Key (nếu FREE)
             session, user_id, user_name, is_vip = login_olm()
             
             if not session:
                 continue
             
-            # 2. VIP → Vào tool luôn
+            # VIP → Cấp license unlimited → Vào tool
             if is_vip:
                 save_lic("VIP", 999999)
                 run_tool(session, user_id, user_name)
                 continue
             
-            # 3. FREE → Vượt key
+            # FREE → Hiện thông tin mua VIP → Lấy key
             banner()
-            print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
-            print(f"{C.Y}║               KÍCH HOẠT KEY FREE                 ║{C.E}")
-            print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
+            print(f"{C.Y}╔════════════════════════════════════════════════════╗{C.E}")
+            print(f"{C.Y}║              KÍCH HOẠT KEY FREE (4 lượt)           ║{C.E}")
+            print(f"{C.Y}╚════════════════════════════════════════════════════╝{C.E}\n")
+            
+            print(f"{C.C}💎 NÂNG CẤP VIP UNLIMITED:{C.E}")
+            print(f"   📞 Liên hệ Admin qua Zalo để được hỗ trợ")
+            print(f"   🎁 VIP = Không giới hạn lượt + Ưu tiên hỗ trợ\n")
+            print(f"{C.C}{'─' * 54}{C.E}\n")
             
             if get_key():
                 run_tool(session, user_id, user_name)
