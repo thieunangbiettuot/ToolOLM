@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""OLM Master Pro - Main Tool v3.0"""
+"""OLM Master Pro - Main Tool"""
 
-# ========== IMPORT THƯ VIỆN ==========
 import os
 import sys
 import time
@@ -13,8 +12,6 @@ import re
 import subprocess
 import hashlib
 import base64
-import socket
-import uuid
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -22,8 +19,7 @@ from datetime import datetime
 LICENSE_FILE = os.getenv('OLM_LICENSE_FILE', 'olm_license.dat')
 ACCOUNT_FILE = os.getenv('OLM_ACCOUNT_FILE', 'olm_account.dat')
 
-# ========== MÃ HÓA (copy từ launcher) ==========
-KEY = b'OLM_ULTRA_SECRET_2026_PROTECTION'
+KEY = b'OLM_ULTRA_SECRET_2026'
 
 def enc(obj):
     txt = json.dumps(obj, separators=(',', ':')).encode()
@@ -63,148 +59,45 @@ def clear_acc():
     if os.path.exists(ACCOUNT_FILE):
         os.remove(ACCOUNT_FILE)
 
+def load_lic():
+    if not os.path.exists(LICENSE_FILE):
+        return None
+    try:
+        with open(LICENSE_FILE) as f:
+            d = dec(f.read())
+        return d
+    except:
+        return None
+
 def consume_one_attempt():
-    """Kiểm tra và trừ lượt - Trả về True nếu CÒN lượt HOẶC vượt link thành công"""
-    if not os.path.exists(LICENSE_FILE):
-        # Không có file license → vượt link
-        return bypass_with_link()
+    """Trừ lượt SAU KHI HOÀN THÀNH - GỌI Ở CUỐI"""
+    d = load_lic()
+    if not d:
+        return False
     
-    try:
-        with open(LICENSE_FILE) as f:
-            d = dec(f.read())
-        
-        if not d:
-            return bypass_with_link()
-        
-        # KIỂM TRA còn lượt không (CHƯA TRỪ)
-        if d['remain'] <= 0:
-            # Hết lượt → vượt link
-            return bypass_with_link()
-        
-        # CÒN LƯỢT → Return True (sẽ trừ SAU khi làm xong)
-        return True
-        
-    except Exception as e:
-        return bypass_with_link()
-
-def actually_consume_one():
-    """Thực sự TRỪ 1 lượt SAU khi làm bài THÀNH CÔNG"""
-    if not os.path.exists(LICENSE_FILE):
-        return
+    d['remain'] -= 1
     
-    try:
-        with open(LICENSE_FILE) as f:
-            d = dec(f.read())
-        
-        if not d:
-            return
-        
-        # Trừ lượt
-        d['remain'] -= 1
-        
-        # Nếu hết lượt → xóa file
-        if d['remain'] <= 0:
-            if os.path.exists(LICENSE_FILE):
-                os.remove(LICENSE_FILE)
-            return
-        
-        # Cập nhật signature
-        sig_str = f"{d['mode']}{d['expire']}{d['ip']}{d['dev']}{d['hw']}"
-        d['sig'] = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
-        
-        # Lưu lại
-        with open(LICENSE_FILE, 'w') as f:
-            f.write(enc(d))
-        
-    except Exception as e:
-        pass
-
-def bypass_with_link():
-    """Hiện link vượt để tiếp tục khi hết lượt"""
+    if d['remain'] <= 0:
+        # Hết lượt
+        try:
+            os.remove(LICENSE_FILE)
+            if os.path.exists(ACCOUNT_FILE):
+                os.remove(ACCOUNT_FILE)
+        except:
+            pass
+        return False
+    
+    # Còn lượt - cập nhật
     from datetime import datetime
-    import requests
+    sig_str = f"{d['mode']}{d['expire']}{d['ip']}{d['dev']}{d['hw']}"
+    d['sig'] = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
     
-    print()
-    print(f"{Colors.RED}{'═' * 60}{Colors.END}")
-    print(f"{Colors.YELLOW}⛔ HẾT LƯỢT! Vượt link để tiếp tục{Colors.END}")
-    print(f"{Colors.RED}{'═' * 60}{Colors.END}")
-    
-    # Tạo key mới HOÀN TOÀN UNIQUE
-    dev_id = hashlib.md5(f"{socket.gethostname()}{os.name}{uuid.getnode()}".encode()).hexdigest()[:16].upper()
-    hw_id = hashlib.sha256(f"{uuid.getnode()}{sys.platform}".encode()).hexdigest()[:20].upper()
-    
-    # Thêm timestamp + random để key LUÔN KHÁC NHAU
-    timestamp = int(time.time() * 1000)  # milliseconds
-    random_salt = random.randint(100000, 999999)
-    
-    h = hashlib.sha256(f"{dev_id}{hw_id}{timestamp}{random_salt}".encode()).hexdigest()
-    new_key = f"OLM-{datetime.now():%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
-    
-    # Tạo link
-    try:
-        URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
-        API_TOKEN = "698b226d9150d31d216157a5"
-        
-        url = f"{URL_BLOG}?ma={new_key}"
-        api = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={requests.utils.quote(url)}"
-        r = requests.get(api, timeout=10)
-        link = r.json().get('shortenedUrl', url) if r.json().get('status') == 'success' else url
-    except:
-        link = f"{URL_BLOG}?ma={new_key}"
-    
-    print(f"\n{Colors.CYAN}BƯỚC 1: {Colors.GREEN}{link}{Colors.END}")
-    print(f"{Colors.CYAN}BƯỚC 2: Nhập mã để tiếp tục{Colors.END}")
-    print(f"{Colors.YELLOW}(Mã bắt đầu bằng: OLM-{datetime.now():%d%m}-...){Colors.END}\n")
-    
-    # Cho 3 lần nhập
-    for attempt in range(3):
-        inp = input(f"{Colors.YELLOW}Mã (còn {3-attempt} lần): {Colors.END}").strip()
-        
-        if inp == new_key or inp.upper() == "ADMIN_VIP_2026":
-            print_status("Xác thực thành công!", 'success', Colors.GREEN)
-            
-            # Lưu license mới (4 lượt hoặc unlimited)
-            mode = "VIP" if inp.upper() == "ADMIN_VIP_2026" else "FREE"
-            remain = 999999 if inp.upper() == "ADMIN_VIP_2026" else 4
-            
-            try:
-                ip_addr = requests.get('https://api.ipify.org', timeout=5).text.strip()
-            except:
-                ip_addr = "0.0.0.0"
-            
-            new_lic = {
-                'mode': mode, 'remain': remain,
-                'expire': datetime.now().strftime("%d/%m/%Y"),
-                'ip': ip_addr, 
-                'dev': dev_id, 
-                'hw': hw_id
-            }
-            
-            sig_str = f"{new_lic['mode']}{new_lic['expire']}{new_lic['ip']}{new_lic['dev']}{new_lic['hw']}"
-            new_lic['sig'] = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
-            
-            with open(LICENSE_FILE, 'w') as f:
-                f.write(enc(new_lic))
-            
-            print_status(f"Đã cấp {remain} lượt mới!", 'success', Colors.GREEN)
-            time.sleep(1)
-            return True
-    
-    # Hết lượt nhập → thoát
-    print_status("Sai quá nhiều! Tool sẽ thoát...", 'error', Colors.RED)
-    time.sleep(2)
-    sys.exit(0)
+    with open(LICENSE_FILE, 'w') as f:
+        f.write(enc(d))
+    return True
 
-def get_remaining_attempts():
-    """Lấy số lượt còn lại"""
-    if not os.path.exists(LICENSE_FILE):
-        return 0
-    try:
-        with open(LICENSE_FILE) as f:
-            d = dec(f.read())
-        return d.get('remain', 0) if d else 0
-    except:
-        return 0
+from bs4 import BeautifulSoup
+from datetime import datetime
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -294,26 +187,33 @@ def print_status(message, icon='info', color=Colors.WHITE):
     """In thông báo trạng thái"""
     print(f"{ICONS.get(icon, '')} {color}{message}{Colors.END}")
 
-# ========== KIỂM TRA VÀ CẬP NHẬT THƯ VIỆN (SILENT) ==========
+# ========== KIỂM TRA VÀ CẬP NHẬT THƯ VIỆN ==========
 def check_and_update_packages():
-    """Kiểm tra và cập nhật gói tin - SILENT MODE"""
+    """Kiểm tra và cập nhật gói tin"""
+    print_header("KIỂM TRA CẬP NHẬT THƯ VIỆN")
+    
     required_packages = ['requests', 'beautifulsoup4']
     
     for package in required_packages:
         try:
+            # Sửa đổi: beautifulsoup4 cần import là bs4, nhưng cài đặt qua pip là beautifulsoup4
             if package == 'beautifulsoup4':
                 __import__('bs4')
             else:
                 __import__(package)
+            print_status(f"Đã cài đặt: {package}", 'check', Colors.GREEN)
         except ImportError:
+            print_status(f"Thiếu: {package} - Đang cài đặt...", 'warning', Colors.YELLOW)
             try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"], 
-                                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"])
+                print_status(f"Đã cài đặt thành công: {package}", 'success', Colors.GREEN)
             except:
                 print_status(f"Không thể cài đặt {package}", 'error', Colors.RED)
                 wait_enter()
                 return False
     
+    print_status("Tất cả thư viện đã sẵn sàng!", 'success', Colors.GREEN)
+    time.sleep(1)
     return True
 
 # ========== QUẢN LÝ TÀI KHOẢN ==========
@@ -396,11 +296,6 @@ def login_olm():
     """Đăng nhập OLM"""
     print_header("ĐĂNG NHẬP OLM")
     
-    # Hiển thị số lượt còn lại
-    remaining = get_remaining_attempts()
-    if remaining > 0:
-        print(f"{Colors.GREEN}💎 Còn {remaining} lượt{Colors.END}\n")
-    
     # Chọn tài khoản đã lưu
     saved_username, saved_password = select_saved_account()
     
@@ -409,6 +304,7 @@ def login_olm():
         if use_saved == 'y':
             username = saved_username
             password = saved_password
+            print_status("Đang đăng nhập với tài khoản đã lưu...", 'user', Colors.GREEN)
         else:
             username = input(f"{ICONS['user']} {Colors.YELLOW}Tên đăng nhập: {Colors.END}").strip()
             password = input(f"{ICONS['key']} {Colors.YELLOW}Mật khẩu: {Colors.END}").strip()
@@ -421,19 +317,17 @@ def login_olm():
         wait_enter()
         return None, None, None
     
-    # Check account lock
+    # Account lock
     acc = load_acc()
     if acc and acc.get('user') != username:
         print()
-        print_status(f"⛔ KEY ĐÃ LIÊN KẾT: {acc.get('user')}", 'error', Colors.RED)
-        print_status(f"Bạn đang nhập: {username}", 'warning', Colors.YELLOW)
-        print_status("Chọn [3] Đổi tài khoản để thay đổi", 'info', Colors.CYAN)
+        print_status(f"⛔ Key đã liên kết với tài khoản khác!", 'error', Colors.RED)
+        print_status(f"Chọn [3] Đổi tài khoản để thay đổi", 'info', Colors.CYAN)
         wait_enter()
         return None, None, None
     
     if not acc:
         save_acc(username)
-        print_status(f"🔐 Đã liên kết key với: {username}", 'success', Colors.GREEN)
     
     session = requests.Session()
     session.headers.update(HEADERS)
@@ -666,7 +560,7 @@ def get_assignments_fixed(session, pages_to_scan=5):
                             # KHÔNG CÓ SPAN -> XÉT LÀ CHƯA LÀM
                             should_process = True
                         else:
-                            # Có span -> kiểm tra nội dung
+                            # Có span -> kiểm tra nội
                             for span in status_spans:
                                 span_text = span.get_text(strip=True).lower()
                                 if "chưa" in span_text or "chưa nộp" in span_text or "làm tiếp" in span_text:
@@ -849,8 +743,10 @@ def display_assignments_table(assignments):
 def get_target_score(is_video=False, is_kiem_tra=False):
     """Menu chọn điểm số"""
     if is_video:
+        print_status("Video: Tự động chọn 100 điểm", 'video', Colors.BLUE)
         return 100
     elif is_kiem_tra:
+        print_status("Kiểm tra: Tự động chọn điểm cao", 'warning', Colors.YELLOW)
         return random.randint(85, 100)  # Điểm kiểm tra thường cao
     
     print(f"\n{Colors.CYAN}{ICONS['star']} CHỌN ĐIỂM SỐ{Colors.END}")
@@ -924,6 +820,7 @@ def extract_quiz_info(session, url, is_video=False):
         
         if not quiz_list:
             if is_video:
+                print_status("Video: Không có quiz_list, sẽ thử phương pháp khác", 'video', Colors.BLUE)
                 return "", 0, id_courseware, id_cate
             else:
                 print_status("Không tìm thấy danh sách câu hỏi", 'error', Colors.RED)
@@ -981,7 +878,7 @@ def create_data_log_for_normal(total_questions, target_score):
     return data_log, total_time, correct_needed
 
 def submit_assignment(session, assignment, user_id):
-    """Nộp bài tập - KHÔNG TRỪ LƯỢT (đã trừ ở hàm cha)"""
+    """Nộp bài tập"""
     print(f"\n{Colors.CYAN}{ICONS['upload']} ĐANG XỬ LÝ:{Colors.END}")
     print(f"{Colors.WHITE}📖 {assignment['title']}{Colors.END}")
     
@@ -1107,6 +1004,7 @@ def handle_video_submission(session, assignment, user_id, quiz_list, total_quest
     ]
     
     for i, method in enumerate(methods, 1):
+        print_status(f"Thử phương pháp {i} cho video...", 'video', Colors.BLUE)
         success = method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
         if success:
             return True
@@ -1374,7 +1272,7 @@ def handle_submission_response(response, target_score):
 
 # ========== GIẢI BÀI TỪ LINK ==========
 def solve_from_link(session, user_id):
-    """Giải bài từ link - TRỪ 1 LƯỢT"""
+    """Giải bài từ link"""
     print_header("GIẢI BÀI TỪ LINK")
     
     print(f"{Colors.CYAN}{ICONS['link']} NHẬP LINK BÀI TẬP:{Colors.END}")
@@ -1386,11 +1284,6 @@ def solve_from_link(session, user_id):
     if not url.startswith('https://olm.vn/'):
         print_status("Link không hợp lệ! Phải là link OLM", 'error', Colors.RED)
         wait_enter()
-        return False
-    
-    # KIỂM TRA CÒN LƯỢT (chưa trừ)
-    if not consume_one_attempt():
-        # User từ chối vượt link
         return False
     
     try:
@@ -1428,11 +1321,11 @@ def solve_from_link(session, user_id):
         
         if confirm == 'y':
             success = submit_assignment(session, assignment, user_id)
-            
-            # ⭐ TRỪ LƯỢT SAU KHI THÀNH CÔNG
+            # TRỪ LƯỢT SAU KHI XONG
             if success:
-                actually_consume_one()
-            
+                if not consume_one_attempt():
+                    print_status("⛔ Hết lượt!", 'error', Colors.RED)
+                    sys.exit(0)
             return success
         else:
             print_status("Đã hủy", 'warning', Colors.YELLOW)
@@ -1442,16 +1335,13 @@ def solve_from_link(session, user_id):
         print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
         return False
 
-# ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH - CHỈ TRỪ 1 LƯỢT CHO CẢ PHIÊN ==========
+# ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH ==========
 def solve_specific_from_list(session, user_id):
-    """Giải bài cụ thể - TRỪ 1 LƯỢT CHO CẢ PHIÊN (không phải mỗi bài)"""
+    """Giải bài - 0, 1,3,5 + chọn điểm 1 lần + TRỪ LƯỢT SAU KHI XONG"""
     print_header("GIẢI BÀI CỤ THỂ")
     
-    # Quét bài
-    pages_input = input(f"{Colors.YELLOW}Số trang quét (mặc định 3): {Colors.END}").strip()
-    pages_to_scan = 3
-    if pages_input.isdigit() and int(pages_input) > 0:
-        pages_to_scan = int(pages_input)
+    pages_input = input(f"{Colors.YELLOW}Số trang quét (3): {Colors.END}").strip()
+    pages_to_scan = int(pages_input) if pages_input.isdigit() and int(pages_input) > 0 else 3
     
     assignments = get_assignments_fixed(session, pages_to_scan)
     if not assignments:
@@ -1462,199 +1352,185 @@ def solve_specific_from_list(session, user_id):
     
     # Hướng dẫn
     print()
-    print(f"{Colors.CYAN}╔══════════════════════════════╗{Colors.END}")
-    print(f"{Colors.CYAN}║ {Colors.GREEN}Cách chọn:{Colors.END}")
+    print(f"{Colors.CYAN}╔══════════════════════════╗{Colors.END}")
     print(f"{Colors.CYAN}║ {Colors.YELLOW}0{Colors.END}     → Tất cả")
     print(f"{Colors.CYAN}║ {Colors.YELLOW}1,3,5{Colors.END} → Nhiều bài")
     print(f"{Colors.CYAN}║ {Colors.YELLOW}1{Colors.END}     → 1 bài")
-    print(f"{Colors.CYAN}╚══════════════════════════════╝{Colors.END}")
+    print(f"{Colors.CYAN}╚══════════════════════════╝{Colors.END}")
     
-    # Chọn bài
-    selection = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
+    sel = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
     
-    selected_indices = []
-    if selection == '0':
-        selected_indices = list(range(len(assignments)))
-    elif ',' in selection:
-        for x in selection.split(','):
+    indices = []
+    if sel == '0':
+        indices = list(range(len(assignments)))
+    elif ',' in sel:
+        for x in sel.split(','):
             if x.strip().isdigit():
                 idx = int(x.strip()) - 1
                 if 0 <= idx < len(assignments):
-                    selected_indices.append(idx)
-    elif selection.isdigit():
-        idx = int(selection) - 1
+                    indices.append(idx)
+    elif sel.isdigit():
+        idx = int(sel) - 1
         if 0 <= idx < len(assignments):
-            selected_indices.append(idx)
+            indices.append(idx)
     
-    if not selected_indices:
+    if not indices:
         print_status("Không hợp lệ!", 'error', Colors.RED)
         wait_enter()
         return False
     
-    # CHỌN ĐIỂM 1 LẦN CHO TẤT CẢ
+    # CHỌN ĐIỂM 1 LẦN
     print()
-    print(f"{Colors.CYAN}╔══════════════════════════════╗{Colors.END}")
-    print(f"{Colors.CYAN}║ Chọn điểm cho TẤT CẢ bài:{Colors.END}")
+    print(f"{Colors.CYAN}╔══════════════════════════╗{Colors.END}")
     print(f"{Colors.CYAN}║ {Colors.GREEN}[1]{Colors.END} 100 điểm")
     print(f"{Colors.CYAN}║ {Colors.GREEN}[2]{Colors.END} Tùy chọn")
-    print(f"{Colors.CYAN}╚══════════════════════════════╝{Colors.END}")
+    print(f"{Colors.CYAN}╚══════════════════════════╝{Colors.END}")
     
-    score_choice = input(f"{Colors.YELLOW}Chọn (1/2): {Colors.END}").strip()
+    ch = input(f"{Colors.YELLOW}Chọn (1/2): {Colors.END}").strip()
     
-    if score_choice == '1':
-        target_score = 100
-    elif score_choice == '2':
+    if ch == '2':
         while True:
             try:
-                score = int(input(f"{Colors.YELLOW}Nhập điểm (1-100): {Colors.END}"))
+                score = int(input(f"{Colors.YELLOW}Điểm (1-100): {Colors.END}"))
                 if 1 <= score <= 100:
                     target_score = score
                     break
-                print_status("Điểm từ 1-100!", 'error', Colors.RED)
             except:
-                print_status("Nhập số!", 'error', Colors.RED)
+                pass
     else:
         target_score = 100
     
     # Confirm
-    print(f"\n{Colors.CYAN}Giải {len(selected_indices)} bài với {target_score} điểm{Colors.END}")
+    print(f"\n{Colors.CYAN}Giải {len(indices)} bài với {target_score} điểm{Colors.END}")
     if input(f"{Colors.YELLOW}OK? (y/n): {Colors.END}").lower() != 'y':
         return False
     
-    # Giải từng bài - TRỪ LƯỢT MỖI BÀI
-    print_header(f"GIẢI {len(selected_indices)} BÀI")
-    success_count = 0
+    # Giải từng bài
+    print_header(f"GIẢI {len(indices)} BÀI")
+    done = 0
     
-    for i, idx in enumerate(selected_indices, 1):
-        # ⭐ KIỂM TRA còn lượt (chưa trừ)
-        if not consume_one_attempt():
-            # User từ chối vượt link hoặc lỗi
-            print()
-            print_status(f"Đã giải {success_count}/{len(selected_indices)} bài", 'info', Colors.YELLOW)
-            wait_enter()
-            return False
-        
+    for i, idx in enumerate(indices, 1):
         print(f"\n{Colors.YELLOW}{'━' * 40}{Colors.END}")
-        print(f"{Colors.CYAN}Bài #{idx+1} ({i}/{len(selected_indices)}){Colors.END}")
+        print(f"{Colors.CYAN}Bài {i}/{len(indices)}{Colors.END}")
         print(f"{Colors.YELLOW}{'━' * 40}{Colors.END}")
         
         assignment = assignments[idx]
+        success = False
         
-        # Gọi submit với điểm cố định
         try:
-            # XỬ LÝ VIDEO
+            # GỌI HÀM GỐC submit_assignment nhưng KHÔNG TRỪ LƯỢT
+            # Chỉ submit và kiểm tra thành công
             if assignment['is_video']:
-                quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(
-                    session, assignment['url'], True
-                )
-                if handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
-                    # ⭐ TRỪ LƯỢT SAU KHI THÀNH CÔNG
-                    actually_consume_one()
-                    success_count += 1
+                quiz_list, total_q, id_cw, id_cate = extract_quiz_info(session, assignment['url'], True)
+                success = handle_video_submission(session, assignment, user_id, quiz_list, total_q, id_cw, id_cate)
             else:
-                # BÀI TẬP THƯỜNG
-                quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(
-                    session, assignment['url'], False
-                )
+                quiz_list, total_q, id_cw, id_cate = extract_quiz_info(session, assignment['url'], False)
                 
-                if quiz_list and total_questions > 0:
-                    data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
+                if quiz_list and total_q > 0:
+                    data_log, total_time, correct_needed = create_data_log_for_normal(total_q, target_score)
                     
-                    csrf_token = session.cookies.get('XSRF-TOKEN')
-                    if not csrf_token:
-                        resp = session.get(assignment['url'], timeout=5)
-                        csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
-                        csrf_token = csrf_match.group(1) if csrf_match else ""
+                    csrf = session.cookies.get('XSRF-TOKEN')
+                    if not csrf:
+                        r = session.get(assignment['url'], timeout=5)
+                        m = re.search(r'<meta name="csrf-token" content="([^"]+)"', r.text)
+                        csrf = m.group(1) if m else ""
                     
-                    current_time = int(time.time())
-                    start_time = current_time - total_time if total_time > 0 else current_time - 600
-                    
-                    user_ans = ["0"] * total_questions
-                    list_ans = ["0"] * total_questions
+                    ct = int(time.time())
+                    st = ct - total_time if total_time > 0 else ct - 600
                     
                     payload = {
-                        '_token': csrf_token,
-                        'id_user': user_id,
-                        'id_cate': id_cate or '0',
-                        'id_grade': '10',
-                        'id_courseware': id_courseware or '0',
-                        'id_group': '6148789559',
-                        'id_school': '0',
-                        'time_init': str(start_time),
-                        'name_user': '',
-                        'type_vip': '0',
+                        '_token': csrf, 'id_user': user_id,
+                        'id_cate': id_cate or '0', 'id_grade': '10',
+                        'id_courseware': id_cw or '0', 'id_group': '6148789559',
+                        'id_school': '0', 'time_init': str(st),
+                        'name_user': '', 'type_vip': '0',
                         'time_spent': str(total_time),
                         'data_log': json.dumps(data_log, separators=(',', ':')),
-                        'score': str(target_score),
-                        'answered': str(total_questions),
-                        'correct': str(correct_needed),
-                        'count_problems': str(total_questions),
-                        'missed': str(total_questions - correct_needed),
-                        'time_stored': str(current_time),
-                        'date_end': str(current_time),
-                        'ended': '1',
-                        'save_star': '0',
-                        'cv_q': '1',
+                        'score': str(target_score), 'answered': str(total_q),
+                        'correct': str(correct_needed), 'count_problems': str(total_q),
+                        'missed': str(total_q - correct_needed),
+                        'time_stored': str(ct), 'date_end': str(ct),
+                        'ended': '1', 'save_star': '0', 'cv_q': '1',
                         'quiz_list': quiz_list or '',
                         'choose_log': json.dumps(data_log, separators=(',', ':')),
-                        'user_ans': json.dumps(user_ans),
+                        'user_ans': json.dumps(["0"] * total_q),
                         'list_quiz': quiz_list or '',
-                        'list_ans': ','.join(list_ans),
-                        'result': '[]',
-                        'ans': '[]'
+                        'list_ans': ','.join(["0"] * total_q),
+                        'result': '[]', 'ans': '[]'
                     }
                     
-                    submit_headers = HEADERS.copy()
-                    submit_headers['x-csrf-token'] = csrf_token
+                    hdrs = HEADERS.copy()
+                    hdrs['x-csrf-token'] = csrf
                     
-                    response = session.post(
-                        'https://olm.vn/course/teacher-static',
-                        data=payload,
-                        headers=submit_headers,
-                        timeout=15
-                    )
+                    resp = session.post('https://olm.vn/course/teacher-static',
+                                       data=payload, headers=hdrs, timeout=15)
                     
-                    if handle_submission_response(response, target_score):
-                        # ⭐ TRỪ LƯỢT SAU KHI THÀNH CÔNG
-                        actually_consume_one()
-                        success_count += 1
+                    success = handle_submission_response(resp, target_score)
         
         except Exception as e:
             print_status(f"Lỗi: {e}", 'error', Colors.RED)
         
-        # Delay giữa các bài
-        if i < len(selected_indices):
+        # TRỪ LƯỢT SAU KHI HOÀN THÀNH
+        if success:
+            done += 1
+            if not consume_one_attempt():
+                print()
+                print_status(f"⛔ Đã hết lượt! Giải được {done}/{len(indices)}", 'warning', Colors.YELLOW)
+                wait_enter()
+                sys.exit(0)
+        
+        # Delay
+        if i < len(indices):
             time.sleep(random.randint(2, 4))
     
     # Kết quả
     print()
     print(f"{Colors.GREEN}{'═' * 40}{Colors.END}")
-    print_status(f"Hoàn thành {success_count}/{len(selected_indices)}", 'success', Colors.GREEN)
+    print_status(f"Hoàn thành {done}/{len(indices)}", 'success', Colors.GREEN)
     print(f"{Colors.GREEN}{'═' * 40}{Colors.END}")
-    
-    # Hiển thị lượt còn lại
-    remaining = get_remaining_attempts()
-    if remaining > 0:
-        print(f"\n{Colors.YELLOW}💎 Còn {remaining} lượt{Colors.END}")
-    
     wait_enter()
     return True
+
+def process_all_assignments(session, assignments, user_id):
+    """Xử lý tất cả bài tập"""
+    if not assignments:
+        return 0, 0
+    
+    print_header("BẮT ĐẦU XỬ LÝ")
+    
+    success_count = 0
+    total_count = len(assignments)
+    
+    for idx, assignment in enumerate(assignments, 1):
+        print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
+        
+        success = submit_assignment(session, assignment, user_id)
+        
+        if success:
+            success_count += 1
+        else:
+            print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
+        
+        # Chờ giữa các bài
+        if idx < total_count:
+            wait_time = random.randint(2, 5)
+            print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
+            time.sleep(wait_time)
+    
+    print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
+    print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
+    
+    wait_enter()
+    return success_count, total_count
 
 # ========== MENU CHÍNH ==========
 def main_menu(session, user_id, user_name):
     """Menu chính"""
     
     while True:
-        # Hiển thị lượt còn lại
-        remaining = get_remaining_attempts()
-        
         print_header("MENU CHÍNH")
         print(f"{ICONS['user']} {Colors.GREEN}Xin chào: {user_name}{Colors.END}")
-        
-        if remaining > 0:
-            print(f"{Colors.YELLOW}💎 Còn {remaining} lượt{Colors.END}\n")
-        else:
-            print(f"{Colors.RED}⚠️  Hết lượt - Vượt link để tiếp tục{Colors.END}\n")
+        print()
         
         menu_options = {
             '1': f"{ICONS['brain']} Giải bài cụ thể (0=tất cả, 1,3,5=nhiều)",
@@ -1674,10 +1550,8 @@ def main_menu(session, user_id, user_name):
             solve_from_link(session, user_id)
         
         elif choice == '3':
-            # Đổi tài khoản - XÓA ACCOUNT LOCK
             clear_acc()
-            print_status("Đã xóa liên kết tài khoản", 'success', Colors.GREEN)
-            print_status("Đăng xuất...", 'refresh', Colors.YELLOW)
+            print_status("Đã xóa liên kết", 'success', Colors.GREEN)
             time.sleep(1)
             break
         
@@ -1693,7 +1567,7 @@ def main_menu(session, user_id, user_name):
 # ========== CHƯƠNG TRÌNH CHÍNH ==========
 def main():
     """Chương trình chính"""
-    # Kiểm tra và cập nhật thư viện (SILENT)
+    # Kiểm tra và cập nhật thư viện
     if not check_and_update_packages():
         print_status("Không thể khởi động tool!", 'error', Colors.RED)
         wait_enter()
