@@ -89,7 +89,6 @@ def gen_key():
     return f"OLM-{now:%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
 def load_lic():
-    """Kiểm tra license hiện tại"""
     if not os.path.exists(LIC):
         return None
     try:
@@ -111,9 +110,8 @@ def save_lic(mode, n):
     with open(LIC, 'w') as f:
         f.write(enc(d))
 
-# ========== ACCOUNT MANAGEMENT ==========
+# ========== ACCOUNT ==========
 def load_saved_account():
-    """Tải tài khoản đã lưu"""
     if not os.path.exists(ACCOUNT_FILE):
         return None
     try:
@@ -123,7 +121,6 @@ def load_saved_account():
         return None
 
 def save_account(username, password, name):
-    """Lưu tài khoản"""
     d = {
         'username': username,
         'password': password,
@@ -155,7 +152,6 @@ def login_olm():
     print(f"{C.Y}║            ĐĂNG NHẬP TÀI KHOẢN OLM                 ║{C.E}")
     print(f"{C.Y}╚════════════════════════════════════════════════════╝{C.E}\n")
     
-    # Kiểm tra tài khoản đã lưu
     saved = load_saved_account()
     if saved:
         print(f"{C.C}💾 Tài khoản đã lưu:{C.E}")
@@ -185,11 +181,9 @@ def login_olm():
         session = requests.Session()
         session.headers.update(HEADERS)
         
-        # Get CSRF
         session.get("https://olm.vn/dangnhap", headers=HEADERS, timeout=10)
         csrf = session.cookies.get('XSRF-TOKEN')
         
-        # Login
         payload = {
             '_token': csrf,
             'username': username,
@@ -203,14 +197,12 @@ def login_olm():
         h['x-csrf-token'] = csrf
         session.post("https://olm.vn/post-login", data=payload, headers=h, timeout=10)
         
-        # Check success
         check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS, timeout=10)
         match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
         
         if match and match.group(1).strip():
             user_name = match.group(1).strip()
             
-            # Get user_id
             user_id = None
             cookies = session.cookies.get_dict()
             for cookie_name, cookie_value in cookies.items():
@@ -227,7 +219,6 @@ def login_olm():
                 id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
                 user_id = id_matches[0] if id_matches else username
             
-            # Check VIP
             print(f"{C.Y}⏳ Kiểm tra VIP...{C.E}")
             is_vip = check_vip_user(username)
             
@@ -239,7 +230,6 @@ def login_olm():
             else:
                 print(f"{C.Y}📦 FREE: 4 lượt/ngày{C.E}\n")
             
-            # Hỏi lưu tài khoản
             if not saved or saved.get('username') != username:
                 save_choice = input(f"{C.Y}Lưu tài khoản này? (y/n): {C.E}").strip().lower()
                 if save_choice == 'y':
@@ -260,7 +250,6 @@ def login_olm():
 
 # ========== GET KEY ==========
 def get_key():
-    """Lấy key FREE"""
     while True:
         k = gen_key()
         
@@ -312,7 +301,6 @@ def run_tool(session, user_id, user_name):
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
         
-        # Save session
         with open(SESSION_FILE, 'wb') as f:
             pickle.dump({
                 'cookies': session.cookies.get_dict(),
@@ -320,7 +308,6 @@ def run_tool(session, user_id, user_name):
                 'user_name': user_name
             }, f)
         
-        # Save to temp
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
             f.write(r.text)
             temp = f.name
@@ -329,10 +316,8 @@ def run_tool(session, user_id, user_name):
         env['OLM_LICENSE_FILE'] = LIC
         env['OLM_SESSION_FILE'] = SESSION_FILE
         
-        # Chạy tool
         subprocess.run([sys.executable, temp], env=env)
         
-        # Cleanup
         try:
             os.remove(temp)
             os.remove(SESSION_FILE)
@@ -347,33 +332,27 @@ def run_tool(session, user_id, user_name):
 if __name__ == "__main__":
     try:
         while True:
-            # Kiểm tra license hiện tại
             lic = load_lic()
             
-            # Nếu có license còn hạn → Login rồi vào tool luôn
             if lic:
                 session, user_id, user_name, is_vip = login_olm()
                 
                 if session:
                     run_tool(session, user_id, user_name)
-                    # Sau khi thoát tool → kiểm tra lại license
                     continue
                 else:
                     continue
             
-            # Không có license → Login → Check VIP → Get Key (nếu FREE)
             session, user_id, user_name, is_vip = login_olm()
             
             if not session:
                 continue
             
-            # VIP → Cấp license unlimited → Vào tool
             if is_vip:
                 save_lic("VIP", 999999)
                 run_tool(session, user_id, user_name)
                 continue
             
-            # FREE → Hiện thông tin mua VIP → Lấy key
             banner()
             print(f"{C.Y}╔════════════════════════════════════════════════════╗{C.E}")
             print(f"{C.Y}║              KÍCH HOẠT KEY FREE (4 lượt)           ║{C.E}")
