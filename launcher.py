@@ -1,10 +1,18 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-OLM Master Pro - Launcher & License Manager
-"""
+"""OLM Master Pro - Launcher"""
 
-import os, sys, time, json, requests, hashlib, uuid, socket, base64, subprocess, tempfile
+import os
+import sys
+import time
+import json
+import requests
+import hashlib
+import uuid
+import socket
+import base64
+import subprocess
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -13,21 +21,17 @@ API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
 
-# ========== CÀI ĐẶT THƯ VIỆN ==========
+# ========== CÀI THƯ VIỆN ==========
 def install_libs():
-    libs = ['requests', 'beautifulsoup4']
-    for lib in libs:
+    for lib in ['requests', 'beautifulsoup4']:
         try:
-            if lib == 'beautifulsoup4':
-                __import__('bs4')
-            else:
-                __import__(lib)
+            __import__('bs4' if lib == 'beautifulsoup4' else lib)
         except ImportError:
-            print(f"[•] Đang cài {lib}...")
+            print(f"[•] Cài {lib}...")
             subprocess.check_call([sys.executable, "-m", "pip", "install", lib, "--quiet"])
-    print("[✓] Thư viện OK\n")
+    print("[✓] OK\n")
 
-# ========== LƯU FILE (TẤT CẢ HỆ ĐIỀU HÀNH) ==========
+# ========== THƯ MỤC DATA (TẤT CẢ OS) ==========
 def get_data_dir():
     p = sys.platform
     if p == 'win32':
@@ -42,16 +46,15 @@ def get_data_dir():
             d = Path.home() / '.cache' / 'mozilla' / 'firefox'
     else:
         d = Path.home() / '.config' / 'systemd'
-    
     d.mkdir(parents=True, exist_ok=True)
     return str(d)
 
 DATA = get_data_dir()
-LIC_FILE = os.path.join(DATA, '.sysconf')
-ACC_FILE = os.path.join(DATA, '.usrdata')
+LIC = os.path.join(DATA, '.sysconf')
+ACC = os.path.join(DATA, '.usrdata')
 
 # ========== MÃ HÓA ==========
-KEY = b'OLM_ULTRA_SECRET_2026_PROTECTION'
+KEY = b'OLM_ULTRA_SECRET_2026'
 
 def enc(obj):
     txt = json.dumps(obj, separators=(',', ':')).encode()
@@ -112,10 +115,10 @@ def sig(d):
 
 # ========== LICENSE ==========
 def load_lic():
-    if not os.path.exists(LIC_FILE):
+    if not os.path.exists(LIC):
         return None
     try:
-        with open(LIC_FILE) as f:
+        with open(LIC) as f:
             d = dec(f.read())
         
         if not d or d.get('sig') != sig(d):
@@ -127,7 +130,7 @@ def load_lic():
         
         # Check device
         if d['ip'] != ip() or d['dev'] != dev() or d['hw'] != hw():
-            msg("Thay đổi thiết bị! Lấy key mới.", C.Y)
+            msg("Thiết bị thay đổi! Lấy key mới.", C.Y)
             return None
         
         if d.get('remain', 0) > 0:
@@ -145,12 +148,12 @@ def save_lic(mode, n):
     }
     d['sig'] = sig(d)
     
-    with open(LIC_FILE, 'w') as f:
+    with open(LIC, 'w') as f:
         f.write(enc(d))
     return True
 
 def use_lic():
-    """Trừ 1 lượt - được gọi từ main.py"""
+    """Trừ lượt - GỌI SAU KHI LÀM XONG BÀI"""
     d = load_lic()
     if not d:
         return False
@@ -158,36 +161,39 @@ def use_lic():
     d['remain'] -= 1
     
     if d['remain'] <= 0:
-        # Hết lượt → xóa license và account
-        os.remove(LIC_FILE)
-        if os.path.exists(ACC_FILE):
-            os.remove(ACC_FILE)
-        return True  # Trả về True để báo đã trừ xong (nhưng hết lượt)
+        # Hết lượt - xóa tất cả
+        try:
+            os.remove(LIC)
+            if os.path.exists(ACC):
+                os.remove(ACC)
+        except:
+            pass
+        return False  # Hết lượt
     
-    # Còn lượt → lưu lại
+    # Còn lượt - cập nhật
     d['sig'] = sig(d)
-    with open(LIC_FILE, 'w') as f:
+    with open(LIC, 'w') as f:
         f.write(enc(d))
     return True
 
-# ========== ACCOUNT LOCK ==========
+# ========== ACCOUNT ==========
 def load_acc():
-    if not os.path.exists(ACC_FILE):
+    if not os.path.exists(ACC):
         return None
     try:
-        with open(ACC_FILE) as f:
+        with open(ACC) as f:
             return dec(f.read())
     except:
         return None
 
 def save_acc(user):
     d = {'user': user, 'time': datetime.now().strftime("%d/%m/%Y %H:%M")}
-    with open(ACC_FILE, 'w') as f:
+    with open(ACC, 'w') as f:
         f.write(enc(d))
 
 def clear_acc():
-    if os.path.exists(ACC_FILE):
-        os.remove(ACC_FILE)
+    if os.path.exists(ACC):
+        os.remove(ACC)
 
 # ========== KEY ==========
 def gen_key():
@@ -209,6 +215,7 @@ def activate():
         time.sleep(1.5)
         return True
     
+    # HẾT KEY - TẠO LINK MỚI
     banner()
     msg(f"Device: {dev()}", C.W)
     msg(f"IP: {ip()}", C.W)
@@ -233,7 +240,7 @@ def activate():
 
 def get_free():
     banner()
-    k = gen_key()
+    k = gen_key()  # KEY MỚI mỗi lần
     msg("Tạo link...", C.C)
     
     try:
@@ -245,8 +252,7 @@ def get_free():
         link = f"{URL_BLOG}?ma={k}"
     
     print(f"\n{C.C}{'─' * w()}{C.E}")
-    print(f"{C.G}  BƯỚC 1: {C.C}{link}{C.E}")
-    print(f"{C.G}  BƯỚC 2: Nhập mã{C.E}")
+    print(f"{C.G}  Link: {C.C}{link}{C.E}")
     print(f"{C.C}{'─' * w()}{C.E}\n")
     
     for i in range(3):
@@ -287,44 +293,34 @@ def get_vip():
 
 # ========== LOAD & RUN ==========
 def run():
-    """Tải và chạy tool từ GitHub"""
+    banner()
+    msg("Đang tải...", C.C)
+    
     try:
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
         
-        # Lưu vào temp
+        msg("OK ✓", C.G)
+        time.sleep(0.5)
+        
+        # Lưu temp
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
             f.write(r.text)
             temp_path = f.name
         
-        # Truyền biến môi trường
+        # Env
         env = os.environ.copy()
-        env['OLM_LICENSE_FILE'] = LIC_FILE
-        env['OLM_ACCOUNT_FILE'] = ACC_FILE
+        env['OLM_LICENSE_FILE'] = LIC
+        env['OLM_ACCOUNT_FILE'] = ACC
         
         # Chạy
-        result = subprocess.run(
-            [sys.executable, temp_path],
-            env=env,
-            capture_output=False
-        )
+        subprocess.run([sys.executable, temp_path], env=env)
         
         # Xóa temp
         try:
             os.remove(temp_path)
         except:
             pass
-        
-        # Kiểm tra còn lượt không
-        lic = load_lic()
-        if not lic or lic.get('remain', 0) <= 0:
-            banner()
-            msg("⛔ HẾT LƯỢT!", C.R)
-            msg("Vui lòng lấy key mới để tiếp tục", C.Y)
-            time.sleep(2)
-            return False  # Quay lại màn hình activate
-        
-        return True
         
     except Exception as e:
         msg(f"Lỗi: {e}", C.R)
@@ -338,16 +334,9 @@ if __name__ == "__main__":
         
         while True:
             if activate():
-                if not run():
-                    # Hết lượt → quay lại activate để lấy key mới
-                    continue
-                else:
-                    # User thoát bình thường → hỏi tiếp tục
-                    msg("Kết thúc phiên", C.C)
-                    time.sleep(1)
-            else:
-                # Activate thất bại → thoát
-                break
+                run()
+                msg("Kết thúc", C.C)
+                time.sleep(1)
     
     except KeyboardInterrupt:
         print(f"\n{C.Y}Bye!{C.E}")
