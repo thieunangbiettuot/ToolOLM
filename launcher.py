@@ -36,6 +36,7 @@ DATA = get_data_dir()
 _h = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()[:8]
 LIC = os.path.join(DATA, f'.{_h}sc')
 SESSION_FILE = os.path.join(DATA, f'.{_h}ss')
+ACC_FILE = os.path.join(DATA, f'.{_h}ac')
 
 # ========== CRYPTO ==========
 KEY = b'OLM_ULTRA_SECRET_2026'
@@ -112,15 +113,82 @@ def check_vip_user(username):
         pass
     return False
 
+
+# ========== QUẢN LÝ TÀI KHOẢN ==========
+def load_accounts():
+    """Tải danh sách tài khoản đã lưu"""
+    if os.path.exists(ACC_FILE):
+        try:
+            with open(ACC_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_account(name, username, password):
+    """Lưu tài khoản"""
+    accounts = load_accounts()
+    accounts[name] = {
+        'username': username,
+        'password': password,
+        'saved_at': datetime.now().strftime("%d/%m/%Y %H:%M")
+    }
+    try:
+        with open(ACC_FILE, 'w') as f:
+            json.dump(accounts, f)
+        return True
+    except:
+        return False
+
+def select_account():
+    """Chọn tài khoản đã lưu"""
+    accounts = load_accounts()
+    if not accounts:
+        return None, None
+    
+    print(f"{C.C}╔══════════════════════════════════════════════════╗{C.E}")
+    print(f"{C.C}║            TÀI KHOẢN ĐÃ LƯU                      ║{C.E}")
+    print(f"{C.C}╚══════════════════════════════════════════════════╝{C.E}\n")
+    
+    items = list(accounts.items())
+    for i, (name, data) in enumerate(items, 1):
+        saved_time = data.get('saved_at', '')
+        print(f"{C.Y}[{i}]{C.E} {name} {C.W}({saved_time}){C.E}")
+    
+    print(f"{C.Y}[0]{C.E} Đăng nhập mới\n")
+    
+    try:
+        choice = input(f"{C.Y}Chọn: {C.E}").strip()
+        if choice == '0':
+            return None, None
+        
+        idx = int(choice) - 1
+        if 0 <= idx < len(items):
+            name, data = items[idx]
+            return data.get('username'), data.get('password')
+    except:
+        pass
+    
+    return None, None
+
 # ========== LOGIN OLM ==========
 def login_olm():
     banner()
-    print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
-    print(f"{C.Y}║              ĐĂNG NHẬP TÀI KHOẢN OLM             ║{C.E}")
-    print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
     
-    username = input(f"{C.C}👤 Username: {C.E}").strip()
-    password = input(f"{C.C}🔑 Password: {C.E}").strip()
+    # Chọn tài khoản đã lưu
+    saved_user, saved_pass = select_account()
+    
+    if saved_user and saved_pass:
+        username = saved_user
+        password = saved_pass
+        print(f"{C.G}✓ Dùng tài khoản đã lưu{C.E}\n")
+    else:
+        print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
+        print(f"{C.Y}║              ĐĂNG NHẬP TÀI KHOẢN OLM             ║{C.E}")
+        print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
+        
+        username = input(f"{C.C}👤 Username: {C.E}").strip()
+        password = input(f"{C.C}🔑 Password: {C.E}").strip()
     
     if not username or not password:
         print(f"\n{C.R}✗ Username/Password không được rỗng{C.E}")
@@ -187,7 +255,14 @@ def login_olm():
             else:
                 print(f"{C.Y}📦 FREE: 4 lượt/ngày{C.E}\n")
             
-            time.sleep(1.5)
+            # Hỏi lưu tài khoản
+            if not saved_user:
+                save_choice = input(f"{C.Y}Lưu tài khoản? (y/n): {C.E}").strip().lower()
+                if save_choice == 'y':
+                    save_account(user_name, username, password)
+                    print(f"{C.G}✓ Đã lưu{C.E}\n")
+            
+            time.sleep(1)
             return session, user_id, user_name, is_vip
         else:
             print(f"\n{C.R}✗ Sai username/password{C.E}")
