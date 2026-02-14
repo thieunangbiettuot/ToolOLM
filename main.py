@@ -177,8 +177,16 @@ ICONS = {
 
 # ========== TIỆN ÍCH HIỂN THỊ ==========
 def clear_screen():
-    """Xóa màn hình"""
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Xóa màn hình - Tối ưu Android"""
+    try:
+        if os.name == 'nt':
+            os.system('cls')
+        else:
+            os.system('clear')
+            # Fallback cho Android/Termux
+            print('\033[2J\033[H', end='')
+    except:
+        print('\n' * 30)
 
 def print_centered(text, color=Colors.WHITE, width=60):
     """In text căn giữa"""
@@ -186,7 +194,16 @@ def print_centered(text, color=Colors.WHITE, width=60):
     print(f"{color}{' ' * padding}{text}{Colors.END}")
 
 def print_line(char='═', color=Colors.CYAN, width=60):
-    """In đường kẻ"""
+    """In đường kẻ - Tối ưu Android"""
+    try:
+        cols = os.get_terminal_size().columns
+        # Android/Termux: width nhỏ hơn
+        if 'ANDROID_ROOT' in os.environ or 'TERMUX' in os.environ.get('PREFIX', ''):
+            width = min(cols - 2, 45)
+        else:
+            width = min(cols - 2, 60)
+    except:
+        width = 45 if 'ANDROID_ROOT' in os.environ else 60
     print(f"{color}{char * width}{Colors.END}")
 
 def print_header(title=""):
@@ -210,8 +227,12 @@ def print_menu(title, options):
     print_line('─', Colors.CYAN, 40)
 
 def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
-    """Chờ nhấn Enter"""
-    input(f"\n{Colors.YELLOW}{prompt}{Colors.END}")
+    """Chờ nhấn Enter - Tối ưu Android"""
+    try:
+        input(f"\n{Colors.YELLOW}{prompt}{Colors.END}")
+    except (EOFError, KeyboardInterrupt):
+        print()
+        pass
 
 def print_status(message, icon='info', color=Colors.WHITE):
     """In thông báo trạng thái"""
@@ -465,7 +486,7 @@ def check_hidden_test_status(session, url, id_cate):
         headers['referer'] = url
         headers['x-csrf-token'] = session.cookies.get('XSRF-TOKEN', '')
         
-        response = session.get(test_url, headers=headers, timeout=10)
+        response = session.get(test_url, headers=headers, timeout=8)
         
         # Nếu có response từ API này -> bài đã hoàn thành
         if response.status_code == 200:
@@ -477,7 +498,7 @@ def check_hidden_test_status(session, url, id_cate):
                 pass
         
         # Thử cách 2: Kiểm tra endpoint get-question-of-ids
-        quiz_response = session.get(url, timeout=10)
+        quiz_response = session.get(url, timeout=8)
         html = quiz_response.text
         
         # Tìm quiz_list
@@ -501,7 +522,7 @@ def check_hidden_test_status(session, url, id_cate):
             api_headers['x-csrf-token'] = session.cookies.get('XSRF-TOKEN', '')
             api_headers['referer'] = url
             
-            api_response = session.post(api_url, data=payload, headers=api_headers, timeout=10)
+            api_response = session.post(api_url, data=payload, headers=api_headers, timeout=8)
             
             if api_response.status_code == 200:
                 # Nếu trả về lỗi hoặc thông báo đã làm
@@ -532,7 +553,7 @@ def get_assignments_fixed(session, pages_to_scan=5):
             print_status(f"Đang quét trang {page}/{pages_to_scan}...", 'search', Colors.YELLOW)
             
             try:
-                response = session.get(url, headers=HEADERS, timeout=10)
+                response = session.get(url, headers=HEADERS, timeout=8)
                 
                 if response.status_code != 200:
                     print_status(f"Lỗi HTTP {response.status_code}", 'error', Colors.RED)
@@ -748,12 +769,21 @@ def get_assignments_fixed(session, pages_to_scan=5):
         return []
 
 def display_assignments_table(assignments):
-    """Hiển thị danh sách bài tập dạng bảng"""
+    """Hiển thị danh sách bài tập - Tối ưu Android"""
     if not assignments:
         return
     
-    print(f"\n{Colors.PURPLE}{'📚 DANH SÁCH BÀI TẬP CẦN LÀM 📚':^90}{Colors.END}")
-    print_line('─', Colors.PURPLE, 90)
+    # Check Android
+    is_android = 'ANDROID_ROOT' in os.environ or 'TERMUX' in os.environ.get('PREFIX', '')
+    
+    if is_android:
+        # Android: Format đơn giản hơn
+        print(f"\n{Colors.PURPLE}📚 DANH SÁCH BÀI TẬP{Colors.END}")
+        print_line('─', Colors.PURPLE, 45)
+    else:
+        # Desktop: Format đầy đủ
+        print(f"\n{Colors.PURPLE}{'📚 DANH SÁCH BÀI TẬP CẦN LÀM 📚':^90}{Colors.END}")
+        print_line('─', Colors.PURPLE, 90)
     
     for idx, item in enumerate(assignments, 1):
         title = item['title']
@@ -828,7 +858,7 @@ def get_target_score(is_video=False, is_kiem_tra=False):
 def extract_quiz_info(session, url, is_video=False):
     """Trích xuất thông tin quiz"""
     try:
-        resp = session.get(url, timeout=10)
+        resp = session.get(url, timeout=8)
         html = resp.text
         
         # Tìm quiz_list
@@ -975,7 +1005,7 @@ def submit_assignment(session, assignment, user_id):
         csrf_token = session.cookies.get('XSRF-TOKEN')
         
         if not csrf_token:
-            resp = session.get(assignment['url'], timeout=10)
+            resp = session.get(assignment['url'], timeout=8)
             csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
             csrf_token = csrf_match.group(1) if csrf_match else ""
         
@@ -1016,7 +1046,7 @@ def submit_assignment(session, assignment, user_id):
             'list_ans': ','.join(list_ans),
             'result': '[]',
             'ans': '[]'
-    }
+        }
         
         # GỬI REQUEST
         print_status("Đang nộp bài...", 'upload', Colors.YELLOW)
@@ -1028,7 +1058,7 @@ def submit_assignment(session, assignment, user_id):
             'https://olm.vn/course/teacher-static',
             data=payload,
             headers=submit_headers,
-            timeout=15
+            timeout=12
         )
         
         print_status(f"Phản hồi: HTTP {response.status_code}", 'info', Colors.WHITE)
@@ -1134,7 +1164,7 @@ def try_video_simple_method(session, assignment, user_id, quiz_list, total_quest
             'https://olm.vn/course/teacher-static',
             data=payload,
             headers=submit_headers,
-            timeout=10
+            timeout=8
         )
         
         return handle_submission_response(response, 100)
@@ -1195,7 +1225,7 @@ def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions
             'https://olm.vn/course/teacher-static',
             data=payload,
             headers=submit_headers,
-            timeout=10
+            timeout=8
         )
         
         return handle_submission_response(response, 100)
@@ -1282,7 +1312,7 @@ def try_video_complex_method(session, assignment, user_id, quiz_list, total_ques
             'https://olm.vn/course/teacher-static',
             data=payload,
             headers=submit_headers,
-            timeout=10
+            timeout=8
         )
         
         return handle_submission_response(response, 100)
@@ -1341,7 +1371,7 @@ def solve_from_link(session, user_id):
     
     try:
         # Kiểm tra loại bài
-        resp = session.get(url, timeout=10)
+        resp = session.get(url, timeout=8)
         is_video = 'video' in url.lower() or '[Video]' in resp.text
         is_ly_thuyet = 'ly-thuyet' in url.lower() or 'lý-thuyết' in url.lower() or '[Lý thuyết]' in resp.text
         
@@ -1516,7 +1546,7 @@ def solve_specific_from_list(session, user_id):
                     hdrs['x-csrf-token'] = csrf
                     
                     resp = session.post('https://olm.vn/course/teacher-static',
-                                       data=payload, headers=hdrs, timeout=15)
+                                       data=payload, headers=hdrs, timeout=12)
                     
                     success = handle_submission_response(resp, target_score)
         
