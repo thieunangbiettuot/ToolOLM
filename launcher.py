@@ -55,6 +55,23 @@ def install_libs():
             subprocess.check_call([sys.executable, "-m", "pip", "install", lib, "--quiet"])
     print("[✓] OK\n")
 
+
+# ========== ANDROID DETECT ==========
+def is_android():
+    """Kiểm tra có phải Android không"""
+    return 'ANDROID_ROOT' in os.environ or 'TERMUX_VERSION' in os.environ
+
+def get_platform_name():
+    """Lấy tên platform"""
+    if is_android():
+        return "Android (Termux)"
+    elif sys.platform == 'win32':
+        return "Windows"
+    elif sys.platform == 'darwin':
+        return "macOS"
+    else:
+        return "Linux"
+
 # ========== THƯ MỤC DATA (TẤT CẢ OS) ==========
 def get_data_dir():
     p = sys.platform
@@ -106,18 +123,41 @@ def dec(s):
 C = type('C', (), {'R':'\033[91m','G':'\033[92m','Y':'\033[93m','B':'\033[94m','C':'\033[96m','W':'\033[97m','E':'\033[0m'})()
 
 def cls():
-    os.system('cls' if os.name == 'nt' else 'clear')
+    """Clear screen - Tối ưu cho Android"""
+    try:
+        if os.name == 'nt':
+            os.system('cls')
+        else:
+            # Linux/Mac/Android
+            os.system('clear')
+            # Fallback cho Android
+            print('\033[2J\033[H', end='')
+    except:
+        print('\n' * 50)  # Fallback
 
 def w():
+    """Get terminal width - Tối ưu Android"""
     try:
-        return min(os.get_terminal_size().columns - 2, 68)
+        cols = os.get_terminal_size().columns
+        # Android terminal thường nhỏ hơn
+        if 'ANDROID_ROOT' in os.environ or 'TERMUX' in os.environ.get('PREFIX', ''):
+            return min(cols - 2, 50)  # Hẹp hơn cho mobile
+        return min(cols - 2, 68)
     except:
+        # Android/Termux fallback
+        if 'ANDROID_ROOT' in os.environ:
+            return 45
         return 60
 
 def banner():
     cls()
     print(f"\n{C.C}{'═' * w()}{C.E}")
     print(f"{C.B}{'OLM MASTER PRO v3.0'.center(w())}{C.E}")
+    
+    # Hiển thị platform (debug Android)
+    platform = get_platform_name()
+    print(f"{C.C}{platform.center(w())}{C.E}")
+    
     print(f"{C.C}{'═' * w()}{C.E}\n")
 
 def msg(t, c=C.W):
@@ -231,8 +271,13 @@ def clear_acc():
 
 # ========== KEY ==========
 def gen_key():
-    h = hashlib.sha256(f"{dev()}{hw()}{datetime.now():%d%m%Y}".encode()).hexdigest()
-    return f"OLM-{datetime.now():%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
+    """Tạo key UNIQUE - không bao giờ trùng"""
+    import random
+    now = datetime.now()
+    # Kết hợp: device + timestamp microsecond + random
+    unique = f"{dev()}{hw()}{now.timestamp()}{random.randint(1000, 9999)}"
+    h = hashlib.sha256(unique.encode()).hexdigest()
+    return f"OLM-{now:%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
 
 # ========== KÍCH HOẠT ==========
@@ -291,7 +336,8 @@ def get_free():
                 
                 if service['name'].startswith('link4m'):
                     api_url = f"{service['api']}?api={service['token']}&url={requests.utils.quote(url)}"
-                    r = requests.get(api_url, timeout=8)
+                    timeout = 5 if is_android() else 8
+                    r = requests.get(api_url, timeout=timeout)
                     
                     if r.status_code == 200:
                         result = r.json()
@@ -301,7 +347,8 @@ def get_free():
                 
                 elif service['name'] == 'cuttly' and service['token']:
                     api_url = f"{service['api']}?key={service['token']}&short={requests.utils.quote(url)}"
-                    r = requests.get(api_url, timeout=8)
+                    timeout = 5 if is_android() else 8
+                    r = requests.get(api_url, timeout=timeout)
                     
                     if r.status_code == 200:
                         result = r.json()
@@ -332,7 +379,11 @@ def get_free():
         # Nhập mã (3 lần thử)
         fail_count = 0
         for i in range(3):
-            inp = input(f"{C.Y}  Mã (hoặc 'r' để đổi link): {C.E}").strip()
+            try:
+                inp = input(f"{C.Y}  Mã (hoặc 'r' để đổi link): {C.E}").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return False
             
             # Tạo link mới
             if inp.lower() == 'r':
