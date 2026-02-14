@@ -230,22 +230,27 @@ def gradient_text(text, colors):
 def header(title=""):
     clear()
     
-    # Animated banner
-    banner = f"{I['rocket']} OLM MASTER PRO V1.0 {I['fire']}"
-    colors = [C.BR, C.BY, C.BG, C.BC, C.BB, C.BM]
-    
-    print(f"\n{C.BB}{'═' * 72}{C.E}")
-    print(gradient_text(f"{'█' * 72}", colors))
-    print(f"{C.BW}{banner:^72}{C.E}")
-    print(gradient_text(f"{'█' * 72}", colors[::-1]))
-    print(f"{C.BB}{'═' * 72}{C.E}")
+    # Big CYAN text - no box
+    print(f"\n{C.BC}{C.BOLD}")
+    print("  ╔═══════════════════════════════════════════════════════════════╗")
+    print("  ║                                                               ║")
+    print("  ║     ██████╗ ██╗     ███╗   ██╗    ███╗   ███╗ █████╗         ║")
+    print("  ║    ██╔═══██╗██║     ████╗  ██║    ████╗ ████║██╔══██╗        ║")
+    print("  ║    ██║   ██║██║     ██╔██╗ ██║    ██╔████╔██║███████║        ║")
+    print("  ║    ██║   ██║██║     ██║╚██╗██║    ██║╚██╔╝██║██╔══██║        ║")
+    print("  ║    ╚██████╔╝███████╗██║ ╚████║    ██║ ╚═╝ ██║██║  ██║        ║")
+    print("  ║     ╚═════╝ ╚══════╝╚═╝  ╚═══╝    ╚═╝     ╚═╝╚═╝  ╚═╝        ║")
+    print("  ║                                                               ║")
+    print("  ║            🚀 MASTER PRO V1.0 - Professional Edition 🔥       ║")
+    print("  ║                      Created by: Tuấn Anh                     ║")
+    print("  ║                                                               ║")
+    print("  ╚═══════════════════════════════════════════════════════════════╝")
+    print(f"{C.E}")
     
     if title:
-        print(f"\n{C.BC}{'▬' * 72}{C.E}")
-        print(f"{C.BY}{I['sparkle']} {title:^67} {I['sparkle']}{C.E}")
-        print(f"{C.BC}{'▬' * 72}{C.E}")
-    
-    print()
+        print(f"\n{C.BC}{C.BOLD}>>> {title.upper()} <<<{C.E}\n")
+    else:
+        print()
 
 def status(msg, icon='info', color=C.W):
     icons = {
@@ -443,56 +448,103 @@ def generate_unique_key():
     return key
 
 def shorten_link(long_url):
-    for service in LINK_SERVICES:
+    """Rút gọn link qua Link4m với nhiều cách thử"""
+    
+    for idx, service in enumerate(LINK_SERVICES, 1):
         try:
+            # Method 1: POST với JSON
             response = requests.post(
                 service['api'],
                 json={'url': long_url},
-                headers={'api-token': service['token'], 'Content-Type': 'application/json'},
+                headers={
+                    'api-token': service['token'],
+                    'Content-Type': 'application/json'
+                },
                 timeout=10
             )
             
             if response.status_code == 200:
                 result = response.json()
-                if result.get('status') == 'success':
+                if result.get('status') == 'success' and result.get('shortenedUrl'):
                     return result.get('shortenedUrl')
-        except:
+            
+            # Method 2: POST với form data
+            response2 = requests.post(
+                service['api'],
+                data={'url': long_url, 'api_token': service['token']},
+                timeout=10
+            )
+            
+            if response2.status_code == 200:
+                try:
+                    result2 = response2.json()
+                    if result2.get('shortenedUrl'):
+                        return result2.get('shortenedUrl')
+                except:
+                    pass
+            
+            # Method 3: GET với params
+            response3 = requests.get(
+                service['api'],
+                params={'url': long_url, 'api_token': service['token']},
+                timeout=10
+            )
+            
+            if response3.status_code == 200:
+                try:
+                    result3 = response3.json()
+                    if result3.get('shortenedUrl'):
+                        return result3.get('shortenedUrl')
+                except:
+                    pass
+                    
+        except Exception as e:
             continue
-    return None
+    
+    # Nếu tất cả fail, trả về link gốc (user tự vượt)
+    status(f"⚠️ Link4m lỗi, sử dụng link trực tiếp", 'warn', C.BY)
+    return long_url
 
 def get_free_key():
+    """Lấy key FREE - hỗ trợ cả link trực tiếp nếu link4m fail"""
     max_regenerate = 3
     
     for attempt in range(max_regenerate):
         key = generate_unique_key()
+        
+        loading_animation(1, "Đang tạo mã key")
+        
+        # Tạo link (có thể là rút gọn hoặc trực tiếp)
         base_url = "https://olm.vn"
         long_url = f"{base_url}?key={key}"
         
-        loading_animation(1, "Đang tạo link rút gọn")
         short_url = shorten_link(long_url)
         
-        if not short_url:
-            status("Không thể tạo link, thử lại...", 'error', C.BR)
-            time.sleep(1)
-            continue
-        
-        # Beautiful link display
+        # Display link
         print(f"\n{C.BG}{'═' * 70}{C.E}")
         print(f"{C.BY}{I['zap']} BƯỚC 1: VƯỢT LINK ĐỂ LẤY MÃ{' ' * 38}{C.E}")
         print(f"{C.BG}{'═' * 70}{C.E}")
-        print(f"{C.BC}{I['link']} Link:{C.E} {C.BW}{short_url}{C.E}")
+        
+        if short_url and short_url != long_url:
+            print(f"{C.BC}{I['link']} Link rút gọn:{C.E} {C.BW}{short_url}{C.E}")
+        else:
+            print(f"{C.BY}{I['warn']} Link4m lỗi, dùng link trực tiếp:{C.E}")
+            print(f"{C.BC}{I['link']} Link:{C.E} {C.BW}{long_url}{C.E}")
+            print(f"{C.DIM}(Vượt link này và bạn sẽ thấy mã bên dưới){C.E}")
+        
+        print(f"{C.BC}{I['key']} Mã của bạn:{C.E} {C.BW}{key}{C.E}")
         print(f"{C.BG}{'═' * 70}{C.E}\n")
         
         fail_count = 0
         for i in range(3):
-            user_input = fancy_input(f"{I['key']} BƯỚC 2 - Nhập mã (hoặc 'r' để tạo link mới): ")
+            user_input = fancy_input(f"{I['key']} BƯỚC 2 - Nhập lại mã để xác nhận (hoặc 'r' để tạo mã mới): ")
             
             if user_input.lower() == 'r':
                 if attempt < max_regenerate - 1:
-                    loading_animation(1, "Đang tạo link mới")
+                    loading_animation(1, "Đang tạo mã mới")
                     break
                 else:
-                    status("Đã hết lượt tạo link mới", 'error', C.BR)
+                    status("Đã hết lượt tạo mã mới", 'error', C.BR)
                     return None
             
             if user_input == key:
@@ -510,7 +562,7 @@ def get_free_key():
             status("Đã hết lượt thử", 'error', C.BR)
             return None
     
-    status("Đã hết lượt tạo link", 'error', C.BR)
+    status("Đã hết lượt tạo mã", 'error', C.BR)
     return None
 
 # ==================== LOGIN ====================
