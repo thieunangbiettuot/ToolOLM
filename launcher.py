@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""OLM Master Pro - Launcher v3.0 Final"""
+"""OLM Master Pro - Launcher v3.0 FINAL"""
 
 import os, sys, time, json, requests, hashlib, uuid, socket, base64, subprocess, tempfile, re, pickle
 from datetime import datetime, timedelta
 from pathlib import Path
 
-# ========== CONFIG ==========
+# CONFIG
 API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
@@ -18,7 +18,7 @@ HEADERS = {
     'x-requested-with': 'XMLHttpRequest',
 }
 
-# ========== DATA DIR ==========
+# DATA DIR
 def get_data_dir():
     p = sys.platform
     if p == 'win32':
@@ -37,8 +37,9 @@ _h = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()
 LIC = os.path.join(DATA, f'.{_h}sc')
 SESSION_FILE = os.path.join(DATA, f'.{_h}ss')
 ACC_FILE = os.path.join(DATA, f'.{_h}ac')
+LOCK_FILE = os.path.join(DATA, f'.{_h}lk')
 
-# ========== CRYPTO ==========
+# CRYPTO
 KEY = b'OLM_ULTRA_SECRET_2026'
 
 def enc(obj):
@@ -61,7 +62,7 @@ def dec(s):
     except:
         return None
 
-# ========== UI ==========
+# UI
 C = type('C', (), {'R':'\033[91m','G':'\033[92m','Y':'\033[93m','B':'\033[94m','C':'\033[96m','W':'\033[97m','E':'\033[0m'})()
 
 def cls():
@@ -69,11 +70,12 @@ def cls():
 
 def banner():
     cls()
-    print(f"\n{C.C}{'═' * 50}{C.E}")
-    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(50)}{C.E}")
-    print(f"{C.C}{'═' * 50}{C.E}\n")
+    w = 50
+    print(f"\n{C.C}{'═' * w}{C.E}")
+    print(f"{C.B}{'OLM MASTER PRO v3.0'.center(w)}{C.E}")
+    print(f"{C.C}{'═' * w}{C.E}\n")
 
-# ========== SYSTEM ==========
+# SYSTEM
 def ip():
     try:
         return requests.get('https://api.ipify.org', timeout=5).text.strip()
@@ -88,35 +90,67 @@ def gen_key():
     h = hashlib.sha256(unique.encode()).hexdigest()
     return f"OLM-{now:%d%m}-{h[:4].upper()}-{h[4:8].upper()}"
 
+def sig(d):
+    return hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}".encode()).hexdigest()[:16]
+
+# LICENSE
+def load_lic():
+    if not os.path.exists(LIC):
+        return None
+    try:
+        with open(LIC) as f:
+            d = dec(f.read())
+        
+        if not d or d.get('sig') != sig(d):
+            return None
+        
+        # Check expire
+        if datetime.strptime(d['expire'], "%d/%m/%Y").date() < datetime.now().date():
+            return None
+        
+        # Check IP (chỉ FREE)
+        if d.get('mode') == 'FREE' and d.get('ip') != ip():
+            return None
+        
+        if d.get('remain', 0) > 0:
+            return d
+        
+        return None
+    except:
+        return None
+
 def save_lic(mode, n):
+    expire_days = 3650 if mode == 'VIP' else 1
     d = {
         'mode': mode, 'remain': n,
-        'expire': (datetime.now() + timedelta(days=3650)).strftime("%d/%m/%Y"),
+        'expire': (datetime.now() + timedelta(days=expire_days)).strftime("%d/%m/%Y"),
         'ip': ip(), 'dev': '', 'hw': ''
     }
-    d['sig'] = hashlib.sha256(f"{d['mode']}{d['expire']}{d['ip']}".encode()).hexdigest()[:16]
+    d['sig'] = sig(d)
     with open(LIC, 'w') as f:
         f.write(enc(d))
 
-# ========== CHECK VIP ==========
-def check_vip_user(username):
-    try:
-        r = requests.get(URL_VIP_USERS, timeout=5)
-        if r.status_code == 200:
-            vip_users = []
-            for line in r.text.strip().split('\n'):
-                line = line.strip()
-                if line and not line.startswith('#'):
-                    vip_users.append(line.lower())
-            return username.lower() in vip_users
-    except:
-        pass
-    return False
+# ACCOUNT LOCK
+def load_lock():
+    if os.path.exists(LOCK_FILE):
+        try:
+            with open(LOCK_FILE) as f:
+                return dec(f.read())
+        except:
+            pass
+    return None
 
+def save_lock(username):
+    d = {'user': username, 'time': datetime.now().strftime("%d/%m/%Y %H:%M")}
+    with open(LOCK_FILE, 'w') as f:
+        f.write(enc(d))
 
-# ========== QUẢN LÝ TÀI KHOẢN ==========
+def clear_lock():
+    if os.path.exists(LOCK_FILE):
+        os.remove(LOCK_FILE)
+
+# SAVED ACCOUNTS
 def load_accounts():
-    """Tải danh sách tài khoản đã lưu"""
     if os.path.exists(ACC_FILE):
         try:
             with open(ACC_FILE, 'r') as f:
@@ -126,7 +160,6 @@ def load_accounts():
     return {}
 
 def save_account(name, username, password):
-    """Lưu tài khoản"""
     accounts = load_accounts()
     accounts[name] = {
         'username': username,
@@ -141,14 +174,13 @@ def save_account(name, username, password):
         return False
 
 def select_account():
-    """Chọn tài khoản đã lưu"""
     accounts = load_accounts()
     if not accounts:
         return None, None
     
-    print(f"{C.C}╔══════════════════════════════════════════════════╗{C.E}")
-    print(f"{C.C}║            TÀI KHOẢN ĐÃ LƯU                      ║{C.E}")
-    print(f"{C.C}╚══════════════════════════════════════════════════╝{C.E}\n")
+    print(f"{C.C}╔{'═' * 48}╗{C.E}")
+    print(f"{C.C}║{'TÀI KHOẢN ĐÃ LƯU'.center(48)}║{C.E}")
+    print(f"{C.C}╚{'═' * 48}╝{C.E}\n")
     
     items = list(accounts.items())
     for i, (name, data) in enumerate(items, 1):
@@ -171,41 +203,62 @@ def select_account():
     
     return None, None
 
-# ========== LOGIN OLM ==========
+# CHECK VIP
+def check_vip_user(username):
+    try:
+        r = requests.get(URL_VIP_USERS, timeout=5)
+        if r.status_code == 200:
+            vip_users = []
+            for line in r.text.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    vip_users.append(line.lower())
+            return username.lower() in vip_users
+    except:
+        pass
+    return False
+
+# LOGIN OLM
 def login_olm():
     banner()
     
-    # Chọn tài khoản đã lưu
+    # Check account lock
+    lock = load_lock()
     saved_user, saved_pass = select_account()
     
     if saved_user and saved_pass:
         username = saved_user
         password = saved_pass
-        print(f"{C.G}✓ Dùng tài khoản đã lưu{C.E}\n")
+        print(f"{C.G}✓ Dùng tài khoản đã lưu\n{C.E}")
     else:
-        print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
-        print(f"{C.Y}║              ĐĂNG NHẬP TÀI KHOẢN OLM             ║{C.E}")
-        print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
+        print(f"{C.Y}╔{'═' * 48}╗{C.E}")
+        print(f"{C.Y}║{'ĐĂNG NHẬP OLM'.center(48)}║{C.E}")
+        print(f"{C.Y}╚{'═' * 48}╝{C.E}\n")
         
         username = input(f"{C.C}👤 Username: {C.E}").strip()
         password = input(f"{C.C}🔑 Password: {C.E}").strip()
     
     if not username or not password:
-        print(f"\n{C.R}✗ Username/Password không được rỗng{C.E}")
+        print(f"\n{C.R}✗ Username/Password rỗng{C.E}")
         time.sleep(2)
         return None, None, None, False
     
-    print(f"\n{C.Y}⏳ Đang đăng nhập...{C.E}")
+    # Check account lock
+    if lock and lock.get('user') != username:
+        print(f"\n{C.R}✗ Key đã liên kết với tài khoản khác{C.E}")
+        print(f"{C.Y}Chọn [3] Đổi tài khoản để thay đổi{C.E}")
+        time.sleep(3)
+        return None, None, None, False
+    
+    print(f"\n{C.Y}⏳ Đăng nhập...{C.E}")
     
     try:
         session = requests.Session()
         session.headers.update(HEADERS)
         
-        # Get CSRF
         session.get("https://olm.vn/dangnhap", headers=HEADERS, timeout=10)
         csrf = session.cookies.get('XSRF-TOKEN')
         
-        # Login
         payload = {
             '_token': csrf,
             'username': username,
@@ -219,14 +272,12 @@ def login_olm():
         h['x-csrf-token'] = csrf
         session.post("https://olm.vn/post-login", data=payload, headers=h, timeout=10)
         
-        # Check success
         check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS, timeout=10)
         match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
         
         if match and match.group(1).strip():
             user_name = match.group(1).strip()
             
-            # Get user_id
             user_id = None
             cookies = session.cookies.get_dict()
             for cookie_name, cookie_value in cookies.items():
@@ -243,19 +294,22 @@ def login_olm():
                 id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
                 user_id = id_matches[0] if id_matches else username
             
-            # Check VIP
-            print(f"{C.Y}⏳ Kiểm tra VIP...{C.E}")
+            # Check VIP ngầm
             is_vip = check_vip_user(username)
             
-            print(f"\n{C.G}✓ Đăng nhập thành công{C.E}")
-            print(f"{C.C}👤 Tên: {user_name}{C.E}")
+            print(f"{C.G}✓ Đăng nhập thành công{C.E}")
+            print(f"{C.C}👤 {user_name}{C.E}")
             
             if is_vip:
-                print(f"{C.G}👑 VIP: UNLIMITED{C.E}\n")
+                print(f"{C.G}👑 VIP{C.E}\n")
             else:
-                print(f"{C.Y}📦 FREE: 4 lượt/ngày{C.E}\n")
+                print(f"{C.Y}📦 FREE{C.E}\n")
             
-            # Hỏi lưu tài khoản
+            # Lưu account lock
+            if not lock:
+                save_lock(username)
+            
+            # Hỏi lưu
             if not saved_user:
                 save_choice = input(f"{C.Y}Lưu tài khoản? (y/n): {C.E}").strip().lower()
                 if save_choice == 'y':
@@ -274,7 +328,7 @@ def login_olm():
         time.sleep(2)
         return None, None, None, False
 
-# ========== GET KEY ==========
+# GET KEY
 def get_key():
     while True:
         k = gen_key()
@@ -293,11 +347,11 @@ def get_key():
             continue
         
         print(f"{C.C}{'─' * 50}{C.E}")
-        print(f"{C.G}🔗 Link: {link}{C.E}")
+        print(f"{C.G}🔗 {link}{C.E}")
         print(f"{C.C}{'─' * 50}{C.E}\n")
         
         for i in range(3):
-            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
+            inp = input(f"{C.Y}Mã (r=link mới): {C.E}").strip()
             
             if inp.lower() == 'r':
                 break
@@ -309,22 +363,21 @@ def get_key():
                 return True
             
             if i < 2:
-                print(f"{C.R}✗ Sai ({2-i} lần){C.E}")
+                print(f"{C.R}✗ Sai ({2-i}){C.E}")
             time.sleep(i + 1)
         
         if inp.lower() != 'r':
             return False
 
-# ========== RUN TOOL ==========
+# RUN TOOL
 def run_tool(session, user_id, user_name):
     banner()
-    print(f"{C.C}⏳ Đang tải tool...{C.E}")
+    print(f"{C.C}⏳ Đang tải...{C.E}")
     
     try:
         r = requests.get(URL_MAIN, timeout=15)
         r.raise_for_status()
         
-        # Save session
         with open(SESSION_FILE, 'wb') as f:
             pickle.dump({
                 'cookies': session.cookies.get_dict(),
@@ -332,7 +385,6 @@ def run_tool(session, user_id, user_name):
                 'user_name': user_name
             }, f)
         
-        # Save to temp
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
             f.write(r.text)
             temp = f.name
@@ -340,6 +392,7 @@ def run_tool(session, user_id, user_name):
         env = os.environ.copy()
         env['OLM_LICENSE_FILE'] = LIC
         env['OLM_SESSION_FILE'] = SESSION_FILE
+        env['OLM_LOCK_FILE'] = LOCK_FILE
         
         subprocess.run([sys.executable, temp], env=env)
         
@@ -350,34 +403,46 @@ def run_tool(session, user_id, user_name):
             pass
             
     except Exception as e:
-        print(f"{C.R}✗ Lỗi: {e}{C.E}")
+        print(f"{C.R}✗ {e}{C.E}")
         input("\nEnter...")
 
-# ========== MAIN ==========
+# MAIN
 if __name__ == "__main__":
     try:
-        # 1. LOGIN
+        # Check license còn hạn
+        existing_lic = load_lic()
+        
+        if existing_lic and existing_lic.get('remain', 0) > 0:
+            # Có license còn hạn → Vào tool luôn
+            banner()
+            print(f"{C.G}✓ License: {existing_lic['mode']} | {existing_lic['remain']} lượt{C.E}\n")
+            time.sleep(1)
+            
+            # Vẫn cần login để lấy session
+            session, user_id, user_name, is_vip = login_olm()
+            
+            if session:
+                run_tool(session, user_id, user_name)
+            
+            sys.exit(0)
+        
+        # Không có license → Flow đầy đủ
         session, user_id, user_name, is_vip = login_olm()
         
         if not session:
-            print(f"\n{C.R}✗ Không thể đăng nhập{C.E}")
-            time.sleep(2)
             sys.exit(1)
         
-        # 2. VIP → Vào tool luôn
         if is_vip:
             save_lic("VIP", 999999)
             run_tool(session, user_id, user_name)
-            sys.exit(0)
-        
-        # 3. FREE → Vượt key
-        banner()
-        print(f"{C.Y}╔══════════════════════════════════════════════════╗{C.E}")
-        print(f"{C.Y}║               KÍCH HOẠT KEY FREE                 ║{C.E}")
-        print(f"{C.Y}╚══════════════════════════════════════════════════╝{C.E}\n")
-        
-        if get_key():
-            run_tool(session, user_id, user_name)
+        else:
+            banner()
+            print(f"{C.Y}╔{'═' * 48}╗{C.E}")
+            print(f"{C.Y}║{'KÍCH HOẠT KEY FREE'.center(48)}║{C.E}")
+            print(f"{C.Y}╚{'═' * 48}╝{C.E}\n")
+            
+            if get_key():
+                run_tool(session, user_id, user_name)
         
         sys.exit(0)
         
