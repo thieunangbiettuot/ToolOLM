@@ -19,6 +19,9 @@ from datetime import datetime
 LICENSE_FILE = os.getenv('OLM_LICENSE_FILE', 'olm_license.dat')
 ACCOUNT_FILE = os.getenv('OLM_ACCOUNT_FILE', 'olm_account.dat')
 
+# URL danh sách VIP users
+URL_VIP_USERS = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"
+
 KEY = b'OLM_ULTRA_SECRET_2026'
 
 def enc(obj):
@@ -133,6 +136,23 @@ def consume_one_attempt():
 from bs4 import BeautifulSoup
 from datetime import datetime
 
+
+
+def check_vip_user(username):
+    """Kiểm tra username có trong danh sách VIP không"""
+    try:
+        import requests
+        r = requests.get(URL_VIP_USERS, timeout=5)
+        if r.status_code == 200:
+            vip_users = []
+            for line in r.text.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    vip_users.append(line.lower())
+            return username.lower() in vip_users
+    except:
+        pass
+    return False
 
 # ========== BẢO MẬT ==========
 def verify_integrity():
@@ -440,6 +460,45 @@ def login_olm():
             user_name = match.group(1).strip()
             print_status(f"ĐĂNG NHẬP THÀNH CÔNG!", 'success', Colors.GREEN + Colors.BOLD)
             print_status(f"Tên người dùng: {user_name}", 'user', Colors.CYAN)
+            
+            # CHECK VIP USER
+            print_status("Đang kiểm tra VIP...", 'clock', Colors.YELLOW)
+            is_vip = check_vip_user(username)
+            
+            if is_vip:
+                # KÍCH HOẠT VIP TỰ ĐỘNG
+                print()
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                print(f"{Colors.GREEN}👑 CHÀO MỪNG THÀNH VIÊN VIP! 👑{Colors.END}")
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                print(f"{Colors.CYAN}✨ Tài khoản của bạn đã được kích hoạt VIP{Colors.END}")
+                print(f"{Colors.CYAN}💎 Tính năng: UNLIMITED lượt sử dụng{Colors.END}")
+                print(f"{Colors.CYAN}🎯 Không giới hạn thời gian{Colors.END}")
+                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
+                print()
+                
+                # Lưu license VIP
+                try:
+                    from datetime import datetime
+                    vip_data = {
+                        'mode': 'VIP',
+                        'remain': 999999,
+                        'expire': datetime.now().strftime("%d/%m/%Y"),
+                        'ip': '0.0.0.0',
+                        'dev': '',
+                        'hw': ''
+                    }
+                    # Tính signature
+                    import hashlib
+                    sig_str = f"{vip_data['mode']}{vip_data['expire']}{vip_data['ip']}{vip_data['dev']}{vip_data['hw']}"
+                    vip_data['sig'] = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
+                    
+                    with open(LICENSE_FILE, 'w') as f:
+                        f.write(enc(vip_data))
+                except:
+                    pass
+            else:
+                print_status("Tài khoản FREE", 'info', Colors.YELLOW)
             
             # Lấy user_id
             user_id = None
