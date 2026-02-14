@@ -78,6 +78,15 @@ def consume_one_attempt():
     if not d:
         return False
     
+    # VIP không bao giờ trừ lượt
+    if d.get('mode') == 'VIP':
+        print()
+        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
+        print(f"{Colors.GREEN}💎 VIP: UNLIMITED lượt{Colors.END}")
+        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
+        return True
+    
+    # FREE: Trừ lượt
     d['remain'] -= 1
     
     if d['remain'] <= 0:
@@ -461,12 +470,12 @@ def login_olm():
             print_status(f"ĐĂNG NHẬP THÀNH CÔNG!", 'success', Colors.GREEN + Colors.BOLD)
             print_status(f"Tên người dùng: {user_name}", 'user', Colors.CYAN)
             
-            # CHECK VIP USER
+            # CHECK VIP USER - REALTIME từ GitHub
             print_status("Đang kiểm tra VIP...", 'clock', Colors.YELLOW)
             is_vip = check_vip_user(username)
             
             if is_vip:
-                # KÍCH HOẠT VIP TỰ ĐỘNG
+                # KÍCH HOẠT VIP TỰ ĐỘNG - LƯU VỚI NGÀY HIỆN TẠI
                 print()
                 print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
                 print(f"{Colors.GREEN}👑 CHÀO MỪNG THÀNH VIÊN VIP! 👑{Colors.END}")
@@ -477,13 +486,14 @@ def login_olm():
                 print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
                 print()
                 
-                # Lưu license VIP
+                # Lưu license VIP CHỈ CHO NGÀY HIỆN TẠI
+                # Ngày mới → Check lại GitHub → Nếu bị xóa = mất VIP
                 try:
                     from datetime import datetime
                     vip_data = {
                         'mode': 'VIP',
                         'remain': 999999,
-                        'expire': datetime.now().strftime("%d/%m/%Y"),
+                        'expire': datetime.now().strftime("%d/%m/%Y"),  # CHỈ hợp lệ hôm nay
                         'ip': '0.0.0.0',
                         'dev': '',
                         'hw': ''
