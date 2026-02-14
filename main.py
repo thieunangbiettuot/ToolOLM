@@ -80,10 +80,6 @@ def consume_one_attempt():
     
     # VIP không bao giờ trừ lượt
     if d.get('mode') == 'VIP':
-        print()
-        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
-        print(f"{Colors.GREEN}💎 VIP: UNLIMITED lượt{Colors.END}")
-        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
         return True
     
     # FREE: Trừ lượt
@@ -129,16 +125,11 @@ def consume_one_attempt():
     with open(LICENSE_FILE, 'w') as f:
         f.write(enc(d))
     
-    # HIỂN THỊ SỐ LƯỢT CÒN SAU MỖI BÀI
-    print()
+    # Hiển thị số lượt còn
     if d['mode'] == 'VIP':
-        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
-        print(f"{Colors.GREEN}💎 Còn lại: UNLIMITED lượt{Colors.END}")
-        print(f"{Colors.GREEN}{'─' * 40}{Colors.END}")
+        print(f"{Colors.GREEN}💎 VIP Unlimited{Colors.END}")
     else:
-        print(f"{Colors.CYAN}{'─' * 40}{Colors.END}")
-        print(f"{Colors.CYAN}💎 Còn lại: {d['remain']} lượt{Colors.END}")
-        print(f"{Colors.CYAN}{'─' * 40}{Colors.END}")
+        print(f"{Colors.CYAN}💎 Còn: {d['remain']} lượt{Colors.END}")
     
     return True
 
@@ -470,45 +461,13 @@ def login_olm():
             print_status(f"ĐĂNG NHẬP THÀNH CÔNG!", 'success', Colors.GREEN + Colors.BOLD)
             print_status(f"Tên người dùng: {user_name}", 'user', Colors.CYAN)
             
-            # CHECK VIP USER - REALTIME từ GitHub
-            print_status("Đang kiểm tra VIP...", 'clock', Colors.YELLOW)
+            # CHECK VIP ngầm - không thông báo
             is_vip = check_vip_user(username)
             
-            if is_vip:
-                # KÍCH HOẠT VIP TỰ ĐỘNG - LƯU VỚI NGÀY HIỆN TẠI
-                print()
-                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
-                print(f"{Colors.GREEN}👑 CHÀO MỪNG THÀNH VIÊN VIP! 👑{Colors.END}")
-                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
-                print(f"{Colors.CYAN}✨ Tài khoản của bạn đã được kích hoạt VIP{Colors.END}")
-                print(f"{Colors.CYAN}💎 Tính năng: UNLIMITED lượt sử dụng{Colors.END}")
-                print(f"{Colors.CYAN}🎯 Không giới hạn thời gian{Colors.END}")
-                print(f"{Colors.GREEN}{'═' * 60}{Colors.END}")
-                print()
-                
-                # Lưu license VIP CHỈ CHO NGÀY HIỆN TẠI
-                # Ngày mới → Check lại GitHub → Nếu bị xóa = mất VIP
-                try:
-                    from datetime import datetime
-                    vip_data = {
-                        'mode': 'VIP',
-                        'remain': 999999,
-                        'expire': datetime.now().strftime("%d/%m/%Y"),  # CHỈ hợp lệ hôm nay
-                        'ip': '0.0.0.0',
-                        'dev': '',
-                        'hw': ''
-                    }
-                    # Tính signature
-                    import hashlib
-                    sig_str = f"{vip_data['mode']}{vip_data['expire']}{vip_data['ip']}{vip_data['dev']}{vip_data['hw']}"
-                    vip_data['sig'] = hashlib.sha256(sig_str.encode()).hexdigest()[:16]
-                    
-                    with open(LICENSE_FILE, 'w') as f:
-                        f.write(enc(vip_data))
-                except:
-                    pass
-            else:
-                print_status("Tài khoản FREE", 'info', Colors.YELLOW)
+            # Lưu trạng thái VIP để dùng sau
+            import os
+            os.environ['OLM_IS_VIP'] = '1' if is_vip else '0'
+            os.environ['OLM_USERNAME'] = username
             
             # Lấy user_id
             user_id = None
