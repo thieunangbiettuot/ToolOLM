@@ -22,7 +22,7 @@ import platform
 import base64
 import string
 from datetime import datetime
-from bs4 import BeautifulSoup
+from urllib.parse import quote
 
 # ========== CẤU HÌNH MÀU SẮC VÀ KÝ TỰ ĐẶC BIỆT ==========
 class Colors:
@@ -37,7 +37,6 @@ class Colors:
     UNDERLINE = '\033[4m'
     END = '\033[0m'
 
-# Ký tự icon
 ICONS = {
     'success': '✅',
     'error': '❌',
@@ -72,24 +71,20 @@ ICONS = {
 
 # ========== TIỆN ÍCH HIỂN THỊ ==========
 def clear_screen():
-    """Xóa màn hình"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
 def print_centered(text, color=Colors.WHITE, width=60):
-    """In text căn giữa"""
     padding = (width - len(text.strip())) // 2
     print(f"{color}{' ' * padding}{text}{Colors.END}")
 
 def print_line(char='═', color=Colors.CYAN, width=60):
-    """In đường kẻ"""
     print(f"{color}{char * width}{Colors.END}")
 
 def print_header(title=""):
-    """In header tool"""
     clear_screen()
     print_line('═', Colors.BLUE, 60)
-    print_centered(f"{ICONS['rocket']} OLM MASTER PRO - LAUNCHER {ICONS['fire']}", Colors.BLUE + Colors.BOLD, 60)
-    print_centered("Created by: Tuấn Anh", Colors.PURPLE, 60)
+    print_centered("🎯 OLM MASTER PRO - LAUNCHER 🎯", Colors.BLUE + Colors.BOLD, 60)
+    print_centered("Premium Auto Solver Tool", Colors.PURPLE, 60)
     if title:
         print_line('─', Colors.CYAN, 60)
         print_centered(title, Colors.CYAN, 60)
@@ -97,24 +92,20 @@ def print_header(title=""):
     print()
 
 def print_menu(title, options):
-    """In menu"""
     print(f"\n{Colors.CYAN}{ICONS['setting']} {title}{Colors.END}")
-    print_line('─', Colors.CYAN, 40)
+    print_line('─', Colors.CYAN, 45)
     for key, value in options.items():
         print(f"  {Colors.YELLOW}{key}.{Colors.END} {value}")
-    print_line('─', Colors.CYAN, 40)
+    print_line('─', Colors.CYAN, 45)
 
-def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
-    """Chờ nhấn Enter"""
+def wait_enter(prompt="Press Enter to continue..."):
     input(f"\n{Colors.YELLOW}{prompt}{Colors.END}")
 
 def print_status(message, icon='info', color=Colors.WHITE):
-    """In thông báo trạng thái"""
     print(f"{ICONS.get(icon, '')} {color}{message}{Colors.END}")
 
 # ========== CROSS-PLATFORM PATHS ==========
 def get_appdata_path():
-    """Get appropriate appdata path for each platform"""
     system = platform.system()
     if system == "Windows":
         return os.path.join(os.getenv('LOCALAPPDATA', ''), 'Microsoft', 'Windows', 'INetCache', 'IE')
@@ -127,13 +118,11 @@ def get_appdata_path():
             return os.path.expanduser('~/.cache/mozilla/firefox')
 
 def get_device_hash():
-    """Generate unique device hash"""
     mac = uuid.getnode()
     hostname = platform.node()
     return hashlib.md5(f"{mac}{hostname}".encode()).hexdigest()[:16]
 
 def get_file_paths():
-    """Get all file paths for storage"""
     appdata = get_appdata_path()
     device_hash = get_device_hash()
     return {
@@ -147,7 +136,6 @@ def get_file_paths():
 SECRET_KEY = "OLM_MASTER_PRO_SECRET_2024"
 
 def encrypt_data(data):
-    """Encrypt data using XOR + base85"""
     try:
         json_data = json.dumps(data).encode()
         xor_data = bytes(a ^ ord(SECRET_KEY[i % len(SECRET_KEY)]) for i, a in enumerate(json_data))
@@ -160,11 +148,10 @@ def encrypt_data(data):
         return None
 
 def decrypt_data(encrypted_str):
-    """Decrypt data"""
     try:
         if not encrypted_str or len(encrypted_str) < 36:
             return None
-        encoded = encrypted_str[20:-8]  # Remove noise and checksum
+        encoded = encrypted_str[20:-8]
         decoded_bytes = base64.b85decode(encoded)
         decrypted = bytes(a ^ ord(SECRET_KEY[i % len(SECRET_KEY)]) for i, a in enumerate(decoded_bytes))
         return json.loads(decrypted.decode())
@@ -173,7 +160,6 @@ def decrypt_data(encrypted_str):
 
 # ========== LICENSE MANAGEMENT ==========
 def load_license():
-    """Load license from file"""
     paths = get_file_paths()
     if not os.path.exists(paths['license']):
         return None
@@ -185,12 +171,10 @@ def load_license():
             if not data:
                 return None
             
-            # Check expiration
             expire_date = datetime.strptime(data['expire'], "%d/%m/%Y").date()
             if expire_date < datetime.now().date():
                 return None
             
-            # Check IP for FREE license
             if data.get('mode') == 'FREE' and data.get('ip') != get_public_ip():
                 return None
             
@@ -199,7 +183,6 @@ def load_license():
         return None
 
 def save_license(mode, expire, ip=None, remain=0):
-    """Save license to file"""
     paths = get_file_paths()
     data = {
         'mode': mode,
@@ -218,16 +201,47 @@ def save_license(mode, expire, ip=None, remain=0):
     return False
 
 def get_public_ip():
-    """Get public IP address"""
     try:
         response = requests.get('https://httpbin.org/ip', timeout=5)
         return response.json()['origin'].split(',')[0].strip()
     except:
         return '127.0.0.1'
 
+# ========== LINK4M INTEGRATION ==========
+API_TOKEN = "698b226d9150d31d216157a5"
+LINK4M_BASE = "https://link4m.co/api-shorten/v2"
+
+def shorten_url(destination_url):
+    """Shorten URL using Link4m API"""
+    try:
+        encoded_url = quote(destination_url)
+        api_url = f"{LINK4M_BASE}?api={API_TOKEN}&url={encoded_url}"
+        response = requests.get(api_url, timeout=10)
+        if response.status_code == 200:
+            result = response.json()
+            if result.get("status") == "success":
+                return result.get("shortenedUrl")
+    except:
+        pass
+    return None
+
+def generate_and_shorten_key():
+    """Generate key and create shortened link"""
+    # Generate key
+    now = datetime.now()
+    device_id = hashlib.md5(f"{uuid.getnode()}".encode()).hexdigest()[:16]
+    unique_str = f"{device_id}{now.microsecond}{random.randint(1000, 9999)}"
+    hash_val = hashlib.sha256(unique_str.encode()).hexdigest()
+    key = f"OLMFREE-{now.strftime('%d%m')}-{hash_val[:4].upper()}-{hash_val[4:8].upper()}"
+    
+    # Create verification URL (you can customize this)
+    verification_url = f"https://verify-key.com/check?key={key}"
+    short_link = shorten_url(verification_url)
+    
+    return key, short_link
+
 # ========== ACCOUNT MANAGEMENT ==========
 def load_saved_accounts():
-    """Load saved accounts"""
     paths = get_file_paths()
     if os.path.exists(paths['accounts']):
         try:
@@ -239,7 +253,6 @@ def load_saved_accounts():
     return {}
 
 def save_accounts(accounts):
-    """Save accounts to file"""
     paths = get_file_paths()
     try:
         encrypted = encrypt_data(accounts)
@@ -252,23 +265,22 @@ def save_accounts(accounts):
     return False
 
 def select_saved_account():
-    """Select saved account"""
     accounts = load_saved_accounts()
     if not accounts:
         return None, None
     
-    print(f"\n{Colors.CYAN}{ICONS['user']} TÀI KHOẢN ĐÃ LƯU:{Colors.END}")
-    print_line('─', Colors.CYAN, 40)
+    print(f"\n{Colors.CYAN}{ICONS['user']} SAVED ACCOUNTS:{Colors.END}")
+    print_line('─', Colors.CYAN, 45)
     
     account_list = list(accounts.items())
     for idx, (name, data) in enumerate(account_list, 1):
         saved_time = data.get('saved_at', '')
         print(f"  {Colors.YELLOW}{idx}.{Colors.END} {name} {Colors.CYAN}({saved_time}){Colors.END}")
     
-    print(f"  {Colors.YELLOW}0.{Colors.END} Đăng nhập mới")
-    print_line('─', Colors.CYAN, 40)
+    print(f"  {Colors.YELLOW}0.{Colors.END} New Login")
+    print_line('─', Colors.CYAN, 45)
     
-    choice = input(f"{Colors.YELLOW}Chọn tài khoản (0-{len(account_list)}): {Colors.END}").strip()
+    choice = input(f"{Colors.YELLOW}Select account (0-{len(account_list)}): {Colors.END}").strip()
     
     if choice == '0':
         return None, None
@@ -282,7 +294,6 @@ def select_saved_account():
     return None, None
 
 def save_current_account(name, username, password):
-    """Save current account"""
     accounts = load_saved_accounts()
     accounts[name] = {
         'username': username,
@@ -291,15 +302,14 @@ def save_current_account(name, username, password):
     }
     
     if save_accounts(accounts):
-        print_status(f"Đã lưu tài khoản: {name}", 'success', Colors.GREEN)
+        print_status(f"Account saved: {name}", 'success', Colors.GREEN)
         return True
     else:
-        print_status("Không thể lưu tài khoản", 'error', Colors.RED)
+        print_status("Failed to save account", 'error', Colors.RED)
         return False
 
 # ========== VIP CHECK ==========
 def check_vip(username):
-    """Check if user is VIP"""
     try:
         url = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"
         response = requests.get(url, timeout=10)
@@ -308,16 +318,6 @@ def check_vip(username):
     except:
         pass
     return False
-
-# ========== KEY GENERATION ==========
-def generate_free_key():
-    """Generate unique FREE key"""
-    now = datetime.now()
-    device_id = hashlib.md5(f"{uuid.getnode()}".encode()).hexdigest()[:16]
-    unique_str = f"{device_id}{now.microsecond}{random.randint(1000, 9999)}"
-    hash_val = hashlib.sha256(unique_str.encode()).hexdigest()
-    key = f"OLMFREE-{now.strftime('%d%m')}-{hash_val[:4].upper()}-{hash_val[4:8].upper()}"
-    return key
 
 # ========== LOGIN FUNCTIONS ==========
 HEADERS = {
@@ -330,27 +330,25 @@ HEADERS = {
 }
 
 def login_olm():
-    """Login to OLM - giữ nguyên logic gốc"""
-    print_header("ĐĂNG NHẬP OLM")
+    print_header("OLM LOGIN")
     
-    # Chọn tài khoản đã lưu
     saved_username, saved_password = select_saved_account()
     
     if saved_username and saved_password:
-        use_saved = input(f"{Colors.YELLOW}Sử dụng tài khoản đã lưu? (y/n): {Colors.END}").strip().lower()
+        use_saved = input(f"{Colors.YELLOW}Use saved account? (y/n): {Colors.END}").strip().lower()
         if use_saved == 'y':
             username = saved_username
             password = saved_password
-            print_status("Đang đăng nhập với tài khoản đã lưu...", 'user', Colors.GREEN)
+            print_status("Logging in with saved account...", 'user', Colors.GREEN)
         else:
-            username = input(f"{ICONS['user']} {Colors.YELLOW}Tên đăng nhập: {Colors.END}").strip()
-            password = input(f"{ICONS['key']} {Colors.YELLOW}Mật khẩu: {Colors.END}").strip()
+            username = input(f"{ICONS['user']} {Colors.YELLOW}Username: {Colors.END}").strip()
+            password = input(f"{ICONS['key']} {Colors.YELLOW}Password: {Colors.END}").strip()
     else:
-        username = input(f"{ICONS['user']} {Colors.YELLOW}Tên đăng nhập: {Colors.END}").strip()
-        password = input(f"{ICONS['key']} {Colors.YELLOW}Mật khẩu: {Colors.END}").strip()
+        username = input(f"{ICONS['user']} {Colors.YELLOW}Username: {Colors.END}").strip()
+        password = input(f"{ICONS['key']} {Colors.YELLOW}Password: {Colors.END}").strip()
     
     if not username or not password:
-        print_status("Tên đăng nhập và mật khẩu không được để trống!", 'error', Colors.RED)
+        print_status("Username and password required!", 'error', Colors.RED)
         wait_enter()
         return None, None, None
     
@@ -358,13 +356,11 @@ def login_olm():
     session.headers.update(HEADERS)
     
     try:
-        print_status("Đang đăng nhập...", 'clock', Colors.YELLOW)
+        print_status("Authenticating...", 'clock', Colors.YELLOW)
         
-        # Lấy trang đăng nhập
         session.get("https://olm.vn/dangnhap", headers=HEADERS)
         csrf = session.cookies.get('XSRF-TOKEN')
         
-        # Tạo payload đăng nhập
         payload = {
             '_token': csrf,
             'username': username,
@@ -377,19 +373,16 @@ def login_olm():
         h_login = HEADERS.copy()
         h_login['x-csrf-token'] = csrf
         
-        # Đăng nhập
         session.post("https://olm.vn/post-login", data=payload, headers=h_login)
         
-        # Kiểm tra đăng nhập thành công
         check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS)
         match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
         
         if match and match.group(1).strip() != "":
             user_name = match.group(1).strip()
-            print_status(f"ĐĂNG NHẬP THÀNH CÔNG!", 'success', Colors.GREEN + Colors.BOLD)
-            print_status(f"Tên người dùng: {user_name}", 'user', Colors.CYAN)
+            print_status(f"LOGIN SUCCESSFUL!", 'success', Colors.GREEN + Colors.BOLD)
+            print_status(f"User: {user_name}", 'user', Colors.CYAN)
             
-            # Lấy user_id
             user_id = None
             cookies = session.cookies.get_dict()
             for cookie_name, cookie_value in cookies.items():
@@ -406,9 +399,8 @@ def login_olm():
                 id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
                 user_id = id_matches[0] if id_matches else username
             
-            # Hỏi lưu tài khoản
             if not saved_username or saved_username != username:
-                save_choice = input(f"\n{Colors.YELLOW}Lưu tài khoản này? (y/n): {Colors.END}").strip().lower()
+                save_choice = input(f"\n{Colors.YELLOW}Save this account? (y/n): {Colors.END}").strip().lower()
                 if save_choice == 'y':
                     save_current_account(user_name, username, password)
             
@@ -416,28 +408,25 @@ def login_olm():
             return session, user_id, user_name
             
         else:
-            print_status("ĐĂNG NHẬP THẤT BẠI!", 'error', Colors.RED)
-            print_status("Sai tên đăng nhập hoặc mật khẩu", 'error', Colors.RED)
+            print_status("LOGIN FAILED!", 'error', Colors.RED)
+            print_status("Invalid username or password", 'error', Colors.RED)
             wait_enter()
             return None, None, None
             
     except Exception as e:
-        print_status(f"Lỗi đăng nhập: {str(e)}", 'error', Colors.RED)
+        print_status(f"Login error: {str(e)}", 'error', Colors.RED)
         wait_enter()
         return None, None, None
 
 # ========== MAIN FUNCTION ==========
 def main():
-    """Main launcher function"""
     print_header("OLM MASTER PRO LAUNCHER")
     
-    # Check existing license
     license_data = load_license()
     if license_data:
-        print_status("Đang kiểm tra license...", 'info', Colors.YELLOW)
+        print_status("Checking license...", 'info', Colors.YELLOW)
         time.sleep(1)
         
-        # Check if still valid
         remain = license_data.get('remain', 0)
         expire = license_data.get('expire')
         mode = license_data.get('mode')
@@ -446,52 +435,65 @@ def main():
             if mode == 'FREE':
                 current_ip = get_public_ip()
                 if license_data.get('ip') != current_ip:
-                    print_status("Đổi IP detected - cần lấy key mới", 'warning', Colors.YELLOW)
+                    print_status("IP changed - new key required", 'warning', Colors.YELLOW)
                     license_data = None
-            # Valid license found
-            print_status(f"Tìm thấy license {mode} còn {remain} lượt", 'success', Colors.GREEN)
+            print_status(f"Found {mode} license with {remain} uses", 'success', Colors.GREEN)
         else:
-            print_status("License đã hết hạn hoặc hết lượt", 'warning', Colors.YELLOW)
+            print_status("License expired or used up", 'warning', Colors.YELLOW)
             license_data = None
     
-    # If no valid license, need to login and get new one
     if not license_data:
-        # Select saved account or login new
         saved_username, saved_password = select_saved_account()
-        
-        # Login
         session, user_id, user_name = login_olm()
         if not session:
-            print_status("Không thể đăng nhập!", 'error', Colors.RED)
+            print_status("Login failed!", 'error', Colors.RED)
             return
         
-        # Check VIP status
-        print_status("Đang kiểm tra VIP status...", 'info', Colors.YELLOW)
+        print_status("Checking VIP status...", 'info', Colors.YELLOW)
         is_vip = check_vip(user_name)
         
         if is_vip:
-            print_status("Tài khoản VIP - Unlimited lượt", 'success', Colors.GREEN + Colors.BOLD)
-            save_license('VIP', '31/12/2099', remain=-1)  # Unlimited
+            print_status("VIP Account - Unlimited Access", 'success', Colors.GREEN + Colors.BOLD)
+            save_license('VIP', '31/12/2099', remain=-1)
             license_data = {'mode': 'VIP', 'remain': -1}
         else:
-            print_status("Tài khoản FREE - Cần lấy key", 'warning', Colors.YELLOW)
-            # Generate and show key
-            free_key = generate_free_key()
-            print(f"\n{Colors.CYAN}KEY CỦA BẠN:{Colors.END}")
-            print(f"{Colors.YELLOW}{free_key}{Colors.END}")
-            print(f"{Colors.RED}Lưu ý: Key có hiệu lực 1 ngày và 4 lượt{Colors.END}")
+            print_status("FREE Account - Key Required", 'warning', Colors.YELLOW)
             
-            # User enters key
-            user_input = input(f"\n{Colors.YELLOW}Nhập key để tiếp tục: {Colors.END}").strip()
-            if user_input == free_key:
-                save_license('FREE', datetime.now().strftime("%d/%m/%Y"), get_public_ip(), 4)
-                license_data = {'mode': 'FREE', 'remain': 4}
-                print_status("Key hợp lệ - Bắt đầu sử dụng!", 'success', Colors.GREEN)
+            # Generate key and create link
+            free_key, short_link = generate_and_shorten_key()
+            
+            if short_link:
+                print(f"\n{Colors.CYAN}🔑 YOUR ACCESS LINK:{Colors.END}")
+                print(f"{Colors.YELLOW}{short_link}{Colors.END}")
+                print(f"{Colors.RED}Note: Key expires in 1 day with 4 uses{Colors.END}")
+                
+                # Show key for manual entry (fallback)
+                print(f"\n{Colors.PURPLE}Backup Key (if link fails):{Colors.END}")
+                print(f"{Colors.WHITE}{free_key}{Colors.END}")
+                
+                user_input = input(f"\n{Colors.YELLOW}Enter the key you received: {Colors.END}").strip()
+                if user_input == free_key:
+                    save_license('FREE', datetime.now().strftime("%d/%m/%Y"), get_public_ip(), 4)
+                    license_data = {'mode': 'FREE', 'remain': 4}
+                    print_status("Key verified - Starting tool!", 'success', Colors.GREEN)
+                else:
+                    print_status("Invalid key!", 'error', Colors.RED)
+                    return
             else:
-                print_status("Key không hợp lệ!", 'error', Colors.RED)
-                return
+                print_status("Failed to generate link - using direct key", 'error', Colors.RED)
+                print(f"\n{Colors.CYAN}YOUR KEY:{Colors.END}")
+                print(f"{Colors.YELLOW}{free_key}{Colors.END}")
+                
+                user_input = input(f"\n{Colors.YELLOW}Enter key: {Colors.END}").strip()
+                if user_input == free_key:
+                    save_license('FREE', datetime.now().strftime("%d/%m/%Y"), get_public_ip(), 4)
+                    license_data = {'mode': 'FREE', 'remain': 4}
+                    print_status("Key accepted!", 'success', Colors.GREEN)
+                else:
+                    print_status("Invalid key!", 'error', Colors.RED)
+                    return
     
-    # Save session to temp file and run main.py
+    # Save session and run main.py
     temp_dir = tempfile.gettempdir()
     session_file = os.path.join(temp_dir, f'olm_session_{get_device_hash()}.tmp')
     
@@ -504,9 +506,8 @@ def main():
                 'license': license_data
             }, f)
         
-        print_status("Đang tải main.py từ GitHub...", 'download', Colors.CYAN)
+        print_status("Downloading main.py from GitHub...", 'download', Colors.CYAN)
         
-        # Download main.py from GitHub
         main_url = "https://github.com/thieunangbiettuot/ToolOLM/raw/refs/heads/main/main.py"
         main_file = os.path.join(temp_dir, 'main.py')
         
@@ -516,24 +517,23 @@ def main():
                 with open(main_file, 'w', encoding='utf-8') as f:
                     f.write(response.text)
                 
-                print_status("Đang khởi chạy main.py...", 'rocket', Colors.GREEN)
+                print_status("Launching main.py...", 'rocket', Colors.GREEN)
                 time.sleep(2)
                 
-                # Run main.py with session file as argument
                 os.system(f'{sys.executable} "{main_file}" "{session_file}"')
                 
             else:
-                print_status("Không thể tải main.py!", 'error', Colors.RED)
+                print_status("Failed to download main.py!", 'error', Colors.RED)
         except Exception as e:
-            print_status(f"Lỗi tải main.py: {str(e)}", 'error', Colors.RED)
+            print_status(f"Download error: {str(e)}", 'error', Colors.RED)
             
     except Exception as e:
-        print_status(f"Lỗi lưu session: {str(e)}", 'error', Colors.RED)
+        print_status(f"Session save error: {str(e)}", 'error', Colors.RED)
 
 if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n\n{ICONS['exit']} {Colors.YELLOW}Đã dừng chương trình{Colors.END}")
+        print(f"\n\n{ICONS['exit']} {Colors.YELLOW}Program terminated{Colors.END}")
     except Exception as e:
-        print(f"\n{ICONS['error']} {Colors.RED}Lỗi không mong muốn: {str(e)}{Colors.END}")
+        print(f"\n{ICONS['error']} {Colors.RED}Unexpected error: {str(e)}{Colors.END}")
