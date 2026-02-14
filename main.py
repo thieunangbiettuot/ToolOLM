@@ -79,8 +79,7 @@ def consume_one_attempt():
         print()
         print(f"{Colors.RED}{'═' * 50}{Colors.END}")
         print(f"{Colors.RED}⛔ HẾT LƯỢT{Colors.END}")
-        print(f"{Colors.RED}{'═' * 50}{Colors.END}
-")
+        print(f"{Colors.RED}{'═' * 50}{Colors.END}")
         time.sleep(2)
         sys.exit(0)
     
