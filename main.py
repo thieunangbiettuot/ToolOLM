@@ -343,23 +343,8 @@ HEADERS = {
     'referer': 'https://olm.vn/'
 }
 
-# Rate limit tracker (global variables)
-_login_fails = 0
-_last_fail_time = 0
-
 def login_olm():
     """Đăng nhập OLM"""
-    # Anti brute-force
-    global _login_fails, _last_fail_time
-    
-    if _login_fails >= 3:
-        elapsed = time.time() - _last_fail_time
-        if elapsed < 60:
-            wait = int(60 - elapsed)
-            print_status(f"Vui lòng chờ {wait}s...", 'warning', Colors.YELLOW)
-            time.sleep(wait)
-            _login_fails = 0
-    
     print_header("ĐĂNG NHẬP OLM")
     
     # Chọn tài khoản đã lưu
@@ -457,15 +442,8 @@ def login_olm():
             return session, user_id, user_name
             
         else:
-            _login_fails += 1
-            _last_fail_time = time.time()
-            
             print_status("ĐĂNG NHẬP THẤT BẠI!", 'error', Colors.RED)
             print_status("Sai tên đăng nhập hoặc mật khẩu", 'error', Colors.RED)
-            
-            if _login_fails >= 3:
-                print_status("Quá nhiều lần thất bại! Vui lòng chờ 60s", 'warning', Colors.YELLOW)
-            
             wait_enter()
             return None, None, None
             
@@ -474,7 +452,7 @@ def login_olm():
         wait_enter()
         return None, None, None
 
-# ========== HÀM KIỂM TRA BÀI KIỂM TRA ĐÃ LÀM CHƯA (ẨN ĐIỂM) ==========
+
 def check_hidden_test_status(session, url, id_cate):
     """Kiểm tra xem bài kiểm tra đã làm chưa (ẩn điểm)"""
     try:
