@@ -343,15 +343,15 @@ HEADERS = {
     'referer': 'https://olm.vn/'
 }
 
-# Rate limit tracker
+# Rate limit tracker (global variables)
 _login_fails = 0
 _last_fail_time = 0
 
 def login_olm():
     """Đăng nhập OLM"""
+    # Anti brute-force
     global _login_fails, _last_fail_time
     
-    # Anti brute-force
     if _login_fails >= 3:
         elapsed = time.time() - _last_fail_time
         if elapsed < 60:
@@ -457,7 +457,6 @@ def login_olm():
             return session, user_id, user_name
             
         else:
-            global _login_fails, _last_fail_time
             _login_fails += 1
             _last_fail_time = time.time()
             
