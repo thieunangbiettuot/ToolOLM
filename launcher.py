@@ -357,7 +357,7 @@ def generate_key():
     ddmm = now.strftime("%d%m")
     xxxx = hash_value[:4].upper()
     yyyy = hash_value[4:8].upper()
-    return f"OLMFREE-{ddmm}-{xxxx}-{yyyy}"
+    return f"OLM-{ddmm}-{xxxx}-{yyyy}"
 
 # ========== VƯỢT LINK ==========
 def handle_free_license():
@@ -365,7 +365,7 @@ def handle_free_license():
     max_attempts = 3
     for attempt in range(max_attempts):
         key = generate_key()
-        blog_url = f"{blog_base}?ma={key.replace('OLMFREE-', 'OLM-')}"
+        blog_url = f"{blog_base}?ma={key}"
         short_link = create_short_link(blog_url)
         print_status(f"Link vượt: {short_link}", 'link', Colors.CYAN)
         key_input = input_prompt(f"Mã key (r=link mới): ")
