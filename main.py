@@ -463,11 +463,13 @@ def submit_assignment(session, assignment, user_id, license_data):
             else:
                 print_status(f"Đang tạo dữ liệu cho {total_questions} câu...", 'clock', Colors.YELLOW)
                 data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
-                csrf_token = session.cookies.get('XSRF-TOKEN')
+                # Sửa lỗi multiple cookies: Lấy csrf từ session.cookies, không gọi get lại nếu có
+                csrf_token = session.cookies.get('XSRF-TOKEN', '')
                 if not csrf_token:
-                    resp = session.get(assignment['url'], timeout=10)
+                    resp = session.get('https://olm.vn', timeout=10)  # Lấy csrf từ trang chính để tránh duplicate
                     csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
                     csrf_token = csrf_match.group(1) if csrf_match else ""
+                    session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
                 current_time = int(time.time())
                 start_time = current_time - total_time if total_time > 0 else current_time - 600
                 user_ans = ["0"] * total_questions
@@ -540,11 +542,12 @@ def handle_video_submission(session, assignment, user_id, quiz_list, total_quest
 
 def try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
     try:
-        csrf_token = session.cookies.get('XSRF-TOKEN')
+        csrf_token = session.cookies.get('XSRF-TOKEN', '')
         if not csrf_token:
-            resp = session.get(assignment['url'], timeout=5)
+            resp = session.get('https://olm.vn', timeout=5)
             csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
             csrf_token = csrf_match.group(1) if csrf_match else ""
+            session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
         current_time = int(time.time())
         time_spent = random.randint(300, 900)
         data_log = [{
@@ -598,11 +601,12 @@ def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions
     try:
         if not quiz_list or total_questions == 0:
             return False
-        csrf_token = session.cookies.get('XSRF-TOKEN')
+        csrf_token = session.cookies.get('XSRF-TOKEN', '')
         if not csrf_token:
-            resp = session.get(assignment['url'], timeout=5)
+            resp = session.get('https://olm.vn', timeout=5)
             csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
             csrf_token = csrf_match.group(1) if csrf_match else ""
+            session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
         current_time = int(time.time())
         time_spent = random.randint(300, 900)
         data_log = []
@@ -647,11 +651,12 @@ def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions
 
 def try_video_complex_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
     try:
-        csrf_token = session.cookies.get('XSRF-TOKEN')
+        csrf_token = session.cookies.get('XSRF-TOKEN', '')
         if not csrf_token:
-            resp = session.get(assignment['url'], timeout=5)
+            resp = session.get('https://olm.vn', timeout=5)
             csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
             csrf_token = csrf_match.group(1) if csrf_match else ""
+            session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
         current_time = int(time.time())
         time_spent = random.randint(600, 1200)
         data_log = []
@@ -783,11 +788,8 @@ def solve_from_link(session, user_id, license_data):
         print(f"\n{Colors.CYAN}📋 THÔNG TIN BÀI TẬP:{Colors.END}")
         print(f" {Colors.WHITE}📖 Link: {url}{Colors.END}")
         print(f" {Colors.CYAN}📝 Loại: {assignment['type']}{Colors.END}")
-        confirm = input(f"\n{Colors.YELLOW}Xác nhận giải bài này? (y/n): {Colors.END}").strip().lower()
-        if confirm == 'y':
-            submit_assignment(session, assignment, user_id, license_data)
-        else:
-            print_status("Đã hủy", 'warning', Colors.YELLOW)
+        # Bỏ hỏi xác nhận
+        submit_assignment(session, assignment, user_id, license_data)
     except Exception as e:
         print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
 
@@ -815,9 +817,7 @@ def solve_specific(session, user_id, license_data):
         wait_enter()
         return
     target_score = get_target_score()
-    confirm = input(f"\n{Colors.YELLOW}Xác nhận? (y/n): {Colors.END}").strip().lower()
-    if confirm != 'y':
-        return
+    # Bỏ hỏi xác nhận
     success_count = 0
     total_count = len(selected)
     for idx, assignment in enumerate(selected, 1):
