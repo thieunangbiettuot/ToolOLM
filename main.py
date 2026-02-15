@@ -84,10 +84,10 @@ def spinner_animation(message, duration=2, color=Colors.CYAN):
 
 def print_banner(title=""):
     clear_screen()
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}╔══════════════════════════════════════════════════════════════╗{Colors.END}", delay=0.01)
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}║{Colors.MAGENTA}               OLM MASTER PRO V1.0                            {Colors.BLUE}║{Colors.END}", delay=0.01)
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}║{Colors.CYAN}                  Created by: Tuấn Anh                        {Colors.BLUE}║{Colors.END}", delay=0.01)
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}╚══════════════════════════════════════════════════════════════╝{Colors.END}", delay=0.01)
+    animate_text("╔══════════════════════════════════════════════════════════════╗", delay=0.01, color=Colors.BLUE + Colors.BOLD)
+    animate_text("║               OLM MASTER PRO V1.0                            ║", delay=0.01, color=Colors.BLUE + Colors.BOLD)
+    animate_text("║                  Created by: Tuấn Anh                        ║", delay=0.01, color=Colors.BLUE + Colors.BOLD)
+    animate_text("╚══════════════════════════════════════════════════════════════╝", delay=0.01, color=Colors.BLUE + Colors.BOLD)
     if title:
         print(f"{Colors.CYAN}{Colors.BOLD}{title.center(60)}{Colors.END}")
     print()
