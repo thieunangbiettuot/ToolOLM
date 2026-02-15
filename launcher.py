@@ -7,29 +7,12 @@
 ╚══════════════════════════════════════════════════════════════╝
 """
 
-import os
-import sys
-import time
-import json
-import hashlib
-import platform
-import tempfile
-import subprocess
-import requests
-import re
-import pickle
-import socket
-import base64
+import os, sys, time, json, hashlib, platform, tempfile, subprocess, requests, re, pickle, socket, base64
 from datetime import datetime, timedelta
 from pathlib import Path
-import uuid
-import random
-import string
+import uuid, random, string
 
 # ========== CẤU HÌNH ==========
-LAUNCHER_VERSION = "1.0"
-
-# API Key Link4m
 API_TOKEN = "698b226d9150d31d216157a5"
 URL_BLOG = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
 URL_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
@@ -42,18 +25,16 @@ HEADERS = {
 }
 
 # Màu sắc
-class Colors:
-    RESET = '\033[0m'
-    BLACK = '\033[30m'
-    RED = '\033[31m'
-    GREEN = '\033[32m'
-    YELLOW = '\033[33m'
-    BLUE = '\033[34m'
-    PURPLE = '\033[35m'
-    CYAN = '\033[36m'
-    WHITE = '\033[37m'
+class C:
+    R = '\033[91m'
+    G = '\033[92m'
+    Y = '\033[93m'
+    B = '\033[94m'
+    M = '\033[95m'
+    C = '\033[96m'
+    W = '\033[97m'
     BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
+    E = '\033[0m'
 
 # Icon
 ICONS = {
@@ -83,61 +64,40 @@ def clear_screen():
     """Xóa màn hình"""
     os.system('cls' if os.name == 'nt' else 'clear')
 
-def get_terminal_width():
-    """Lấy chiều rộng terminal"""
-    try:
-        return os.get_terminal_size().columns
-    except:
-        return 80
-
-def print_box(title, content, color=Colors.CYAN, width=60):
-    """In box với nội dung"""
-    if width is None:
-        width = min(get_terminal_width() - 4, 80)
-    
-    # Box top
-    print(f"{color}╔{'═' * (width - 2)}╗{Colors.RESET}")
-    
-    # Title
-    if title:
-        title_padding = (width - len(title) - 2) // 2
-        print(f"{color}║{' ' * title_padding}{Colors.BOLD}{title}{Colors.RESET}{color}{' ' * (width - title_padding - len(title) - 2)}║{Colors.RESET}")
-        print(f"{color}╠{'═' * (width - 2)}╣{Colors.RESET}")
-    
-    # Content
-    for line in content:
-        if len(line) > width - 4:
-            line = line[:width - 7] + "..."
-        line_padding = width - len(line) - 4
-        print(f"{color}║ {Colors.WHITE}{line}{Colors.RESET}{color}{' ' * line_padding} ║{Colors.RESET}")
-    
-    # Box bottom
-    print(f"{color}╚{'═' * (width - 2)}╝{Colors.RESET}")
-
-def print_menu(title, options):
-    """In menu"""
-    print_box(title, options, Colors.CYAN)
-
-def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
-    """Chờ nhấn Enter"""
-    input(f"\n{Colors.YELLOW}{ICONS['info']} {prompt}{Colors.RESET}")
-
-def print_status(message, status='info', color=Colors.WHITE):
-    """In thông báo trạng thái"""
-    icon = ICONS.get(status, '•')
-    print(f"{color}{icon} {message}{Colors.RESET}")
-
 def banner():
     """In banner"""
     clear_screen()
-    print(f"\n{Colors.CYAN}{Colors.BOLD}")
+    print(f"\n{C.C}{C.BOLD}")
     print(r"    ╔═══════════════════════════════════════════════╗")
     print(r"    ║                                               ║")
     print(r"    ║         OLM MASTER PRO v1.0                   ║")
     print(r"    ║                                               ║")
     print(r"    ╚═══════════════════════════════════════════════╝")
-    print(f"{Colors.RESET}")
-    print(f"{Colors.PURPLE}                Created by: Tuấn Anh{Colors.RESET}\n")
+    print(f"{C.E}")
+    print(f"{C.M}                Created by: Tuấn Anh{C.E}\n")
+
+def print_box(title, content, color=C.C, width=60):
+    """In box với nội dung"""
+    print(f"{color}╔{'═' * (width - 2)}╗{C.E}")
+    if title:
+        title_padding = (width - len(title) - 2) // 2
+        print(f"{color}║{' ' * title_padding}{C.BOLD}{title}{C.E}{color}{' ' * (width - title_padding - len(title) - 2)}║{C.E}")
+        print(f"{color}╠{'═' * (width - 2)}╣{C.E}")
+    for line in content:
+        if len(line) > width - 4:
+            line = line[:width - 7] + "..."
+        line_padding = width - len(line) - 4
+        print(f"{color}║ {C.W}{line}{C.E}{color}{' ' * line_padding} ║{C.E}")
+    print(f"{color}╚{'═' * (width - 2)}╝{C.E}")
+
+def print_status(message, status='info', color=C.W):
+    """In thông báo trạng thái"""
+    icon = ICONS.get(status, '•')
+    print(f"{icon} {color}{message}{C.E}")
+
+def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
+    """Chờ nhấn Enter"""
+    input(f"\n{C.Y}{ICONS['info']} {prompt}{C.E}")
 
 # ========== THƯ MỤC DỮ LIỆU ==========
 def get_data_dir():
@@ -218,19 +178,19 @@ def select_account():
     if not accounts:
         return None, None
     
-    print(f"\n{Colors.CYAN}╔{'═' * 48}╗{Colors.RESET}")
-    print(f"{Colors.CYAN}║{Colors.YELLOW}{Colors.BOLD}{'TÀI KHOẢN ĐÃ LƯU'.center(48)}{Colors.RESET}{Colors.CYAN}║{Colors.RESET}")
-    print(f"{Colors.CYAN}╚{'═' * 48}╝{Colors.RESET}\n")
+    print(f"\n{C.C}╔{'═' * 48}╗{C.E}")
+    print(f"{C.C}║{C.Y}{C.BOLD}{'TÀI KHOẢN ĐÃ LƯU'.center(48)}{C.E}{C.C}║{C.E}")
+    print(f"{C.C}╚{'═' * 48}╝{C.E}\n")
     
     items = list(accounts.items())
     for i, (name, data) in enumerate(items, 1):
         saved_time = data.get('saved_at', '')
-        print(f"  {Colors.YELLOW}[{i}]{Colors.RESET} {Colors.WHITE}{name}{Colors.RESET} {Colors.CYAN}({saved_time}){Colors.RESET}")
+        print(f"  {C.Y}[{i}]{C.E} {C.W}{name}{C.E} {C.C}({saved_time}){C.E}")
     
-    print(f"  {Colors.YELLOW}[0]{Colors.RESET} {Colors.WHITE}Đăng nhập mới{Colors.RESET}\n")
+    print(f"  {C.Y}[0]{C.E} {C.W}Đăng nhập mới{C.E}\n")
     
     try:
-        choice = input(f"{Colors.YELLOW}Chọn: {Colors.RESET}").strip()
+        choice = input(f"{C.Y}Chọn: {C.E}").strip()
         if choice == '0':
             return None, None
         idx = int(choice) - 1
@@ -252,26 +212,24 @@ def login_olm():
     if saved_user and saved_pass:
         username = saved_user
         password = saved_pass
-        print(f"{Colors.GREEN}✓ Dùng tài khoản đã lưu{Colors.RESET}\n")
+        print_status("Dùng tài khoản đã lưu", 'success', C.G)
     else:
-        print(f"{Colors.CYAN}╔{'═' * 48}╗{Colors.RESET}")
-        print(f"{Colors.CYAN}║{Colors.YELLOW}{Colors.BOLD}{'ĐĂNG NHẬP OLM'.center(48)}{Colors.RESET}{Colors.CYAN}║{Colors.RESET}")
-        print(f"{Colors.CYAN}╚{'═' * 48}╝{Colors.RESET}\n")
-        username = input(f"{Colors.YELLOW}👤 Username: {Colors.RESET}").strip()
-        password = input(f"{Colors.YELLOW}🔑 Password: {Colors.RESET}").strip()
+        print_box("ĐĂNG NHẬP OLM", [])
+        username = input(f"{C.Y}👤 Username: {C.E}").strip()
+        password = input(f"{C.Y}🔑 Password: {C.E}").strip()
     
     if not username or not password:
-        print(f"\n{Colors.RED}✗ Username/Password rỗng{Colors.RESET}")
+        print_status("Username/Password rỗng", 'error', C.R)
         time.sleep(2)
-        return None, None, None, False
+        return None, None, None
     
     if lock and lock.get('user') != username:
-        print(f"\n{Colors.RED}✗ Key đã liên kết với tài khoản khác{Colors.RESET}")
-        print(f"{Colors.YELLOW}  Chọn [3] Đổi tài khoản để thay đổi{Colors.RESET}")
+        print_status("Key đã liên kết với tài khoản khác", 'error', C.R)
+        print_status("Chọn [3] Đổi tài khoản để thay đổi", 'info', C.Y)
         time.sleep(3)
-        return None, None, None, False
+        return None, None, None
     
-    print(f"\n{Colors.YELLOW}⏳ Đang đăng nhập...{Colors.RESET}")
+    print_status("Đang đăng nhập...", 'info', C.Y)
     
     try:
         session = requests.Session()
@@ -311,34 +269,35 @@ def login_olm():
                 id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
                 user_id = id_matches[0] if id_matches else username
             
+            # Check VIP
             is_vip = check_vip_user(username)
             
-            print(f"{Colors.GREEN}✓ Đăng nhập thành công{Colors.RESET}")
-            print(f"{Colors.CYAN}👤 {user_name}{Colors.RESET}")
+            print_status("Đăng nhập thành công", 'success', C.G)
+            print_status(f"👤 {user_name}", 'info', C.C)
             
             if is_vip:
-                print(f"{Colors.GREEN}👑 VIP UNLIMITED{Colors.RESET}\n")
+                print_status("👑 VIP UNLIMITED", 'success', C.G)
             else:
-                print(f"{Colors.YELLOW}📦 FREE (4 lượt/ngày){Colors.RESET}\n")
+                print_status("📦 FREE (4 lượt/ngày)", 'info', C.Y)
             
             if not lock:
                 save_lock(username)
             
             if not saved_user:
-                save_choice = input(f"{Colors.YELLOW}Lưu tài khoản? (y/n): {Colors.RESET}").strip().lower()
+                save_choice = input(f"{C.Y}Lưu tài khoản? (y/n): {C.E}").strip().lower()
                 if save_choice == 'y':
                     save_account(user_name, username, password)
-                    print(f"{Colors.GREEN}✓ Đã lưu{Colors.RESET}\n")
+                    print_status("Đã lưu", 'success', C.G)
             
             time.sleep(1)
             return session, user_id, user_name, is_vip
         else:
-            print(f"\n{Colors.RED}✗ Sai username/password{Colors.RESET}")
+            print_status("Sai username/password", 'error', C.R)
             time.sleep(2)
             return None, None, None, False
             
     except Exception as e:
-        print(f"\n{Colors.RED}✗ Lỗi: {e}{Colors.RESET}")
+        print_status(f"Lỗi: {e}", 'error', C.R)
         time.sleep(2)
         return None, None, None, False
 
@@ -392,9 +351,7 @@ def load_lic():
             return None
         if d.get('mode') == 'FREE' and d.get('ip') != ip():
             return None
-        if d.get('remain', 0) > 0:
-            return d
-        return None
+        return d
     except:
         return None
 
@@ -447,28 +404,26 @@ def get_key():
             link = None
         
         if not link:
-            print(f"{Colors.RED}✗ Lỗi tạo link{Colors.RESET}")
+            print_status("Lỗi tạo link", 'error', C.R)
             time.sleep(2)
             continue
         
-        print(f"\n{Colors.CYAN}{'─' * 50}{Colors.RESET}")
-        print(f"{Colors.GREEN}🔗 Link: {Colors.YELLOW}{link}{Colors.RESET}")
-        print(f"{Colors.CYAN}{'─' * 50}{Colors.RESET}\n")
+        print_box("VƯỚT LINK ĐỂ LẤY KEY", [f"Link: {link}"], C.Y)
         
         for i in range(3):
-            inp = input(f"{Colors.YELLOW}🔑 Mã (r=link mới): {Colors.RESET}").strip()
+            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
             
             if inp.lower() == 'r':
                 break
             
             if inp == k or inp.upper() == "ADMIN_VIP_2026":
                 save_lic("FREE", 4)
-                print(f"{Colors.GREEN}✓ OK{Colors.RESET}\n")
+                print_status("OK", 'success', C.G)
                 time.sleep(1)
                 return True
             
             if i < 2:
-                print(f"{Colors.RED}✗ Sai ({2-i} lần){Colors.RESET}")
+                print_status(f"Sai ({2-i} lần)", 'error', C.R)
             time.sleep(i + 1)
         
         if inp.lower() != 'r':
@@ -478,7 +433,7 @@ def get_key():
 def run_tool(session, user_id, user_name):
     """Tải và chạy main.py"""
     banner()
-    print(f"{Colors.YELLOW}⏳ Đang tải tool...{Colors.RESET}")
+    print_status("Đang tải tool...", 'info', C.Y)
     
     try:
         r = requests.get(URL_MAIN, timeout=15)
@@ -505,8 +460,8 @@ def run_tool(session, user_id, user_name):
             pass
             
     except Exception as e:
-        print(f"{Colors.RED}✗ Lỗi: {e}{Colors.RESET}")
-        input("\nEnter...")
+        print_status(f"Lỗi: {e}", 'error', C.R)
+        wait_enter()
 
 # ========== MAIN ==========
 def main():
@@ -516,43 +471,35 @@ def main():
         sys.exit(0)
     
     try:
-        existing_lic = load_lic()
-        
-        if existing_lic and existing_lic.get('remain', 0) > 0:
-            banner()
-            mode = existing_lic['mode']
-            remain = existing_lic['remain']
-            if mode == 'VIP':
-                print(f"{Colors.GREEN}✓ License: VIP | UNLIMITED{Colors.RESET}\n")
-            else:
-                print(f"{Colors.GREEN}✓ License: FREE | {remain} lượt{Colors.RESET}\n")
-            time.sleep(1)
-            
-            session, user_id, user_name, is_vip = login_olm()
-            if session:
-                run_tool(session, user_id, user_name)
-            sys.exit(0)
-        
         session, user_id, user_name, is_vip = login_olm()
         if not session:
             sys.exit(1)
         
         if is_vip:
+            # VIP - Tạo license trực tiếp
             save_lic("VIP", 999999)
             run_tool(session, user_id, user_name)
         else:
-            banner()
-            print(f"{Colors.CYAN}╔{'═' * 48}╗{Colors.RESET}")
-            print(f"{Colors.CYAN}║{Colors.YELLOW}{Colors.BOLD}{'KÍCH HOẠT KEY FREE'.center(48)}{Colors.RESET}{Colors.CYAN}║{Colors.RESET}")
-            print(f"{Colors.CYAN}╚{'═' * 48}╝{Colors.RESET}\n")
+            # FREE - Kiểm tra license cũ
+            existing_lic = load_lic()
             
-            if get_key():
+            if existing_lic and existing_lic.get('remain', 0) > 0:
+                banner()
+                remain = existing_lic['remain']
+                print_status(f"License: FREE | {remain} lượt", 'success', C.G)
+                time.sleep(1)
                 run_tool(session, user_id, user_name)
+            else:
+                # Cần get key mới
+                banner()
+                print_box("KÍCH HOẠT KEY FREE", [])
+                if get_key():
+                    run_tool(session, user_id, user_name)
         
         sys.exit(0)
         
     except KeyboardInterrupt:
-        print(f"\n{Colors.YELLOW}Tạm biệt!{Colors.RESET}")
+        print(f"\n{C.Y}Tạm biệt!{C.E}")
         sys.exit(0)
 
 if __name__ == "__main__":
