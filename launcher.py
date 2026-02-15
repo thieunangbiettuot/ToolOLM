@@ -108,10 +108,10 @@ def spinner_animation(message, duration=2, color=Colors.CYAN):
 
 def print_banner():
     clear_screen()
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}╔══════════════════════════════════════════════════════════════╗{Colors.END}", delay=0.01)
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}║{Colors.MAGENTA}               OLM MASTER PRO V1.0                            {Colors.BLUE}║{Colors.END}", delay=0.01)
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}║{Colors.CYAN}                  Created by: Tuấn Anh                        {Colors.BLUE}║{Colors.END}", delay=0.01)
-    animate_text(f"{Colors.BLUE}{Colors.BOLD}╚══════════════════════════════════════════════════════════════╝{Colors.END}", delay=0.01)
+    animate_text("╔══════════════════════════════════════════════════════════════╗", delay=0.01, color=Colors.BLUE + Colors.BOLD)
+    animate_text("║               OLM MASTER PRO V1.0                            ║", delay=0.01, color=Colors.BLUE + Colors.BOLD)
+    animate_text("║                  Created by: Tuấn Anh                        ║", delay=0.01, color=Colors.BLUE + Colors.BOLD)
+    animate_text("╚══════════════════════════════════════════════════════════════╝", delay=0.01, color=Colors.BLUE + Colors.BOLD)
     print()
 
 def print_status(message, icon='info', color=Colors.WHITE):
@@ -360,46 +360,28 @@ def generate_key():
     return f"OLMFREE-{ddmm}-{xxxx}-{yyyy}"
 
 # ========== VƯỢT LINK ==========
-def get_key_from_blog():
-    try:
-        response = requests.get("https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html", timeout=TIMEOUT)
-        if response.status_code == 200:
-            match = re.search(r'OLMFREE-\d{4}-[A-F0-9]{4}-[A-F0-9]{4}', response.text)
-            if match:
-                return match.group(0)
-    except:
-        pass
-    return None
-
 def handle_free_license():
-    key = get_key_from_blog()
-    if not key:
-        print_status("Không tìm thấy key từ blog, vui lòng vượt link thủ công.", 'warning', Colors.YELLOW)
-        # Tạo link ngắn
-        blog_url = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
+    blog_base = "https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html"
+    max_attempts = 3
+    for attempt in range(max_attempts):
+        key = generate_key()
+        blog_url = f"{blog_base}?ma={key.replace('OLMFREE-', 'OLM-')}"
         short_link = create_short_link(blog_url)
         print_status(f"Link vượt: {short_link}", 'link', Colors.CYAN)
-        max_attempts = 3
-        for attempt in range(1, max_attempts + 1):
-            key_input = input_prompt(f"Mã key (r=link mới): ")
-            if key_input.lower() == 'r':
-                short_link = create_short_link(blog_url)
-                print_status(f"Link mới: {short_link}", 'link', Colors.CYAN)
-                continue
-            if len(key_input) == 18 and key_input.startswith('OLMFREE-'):
-                key = key_input
-                break
-            print_status(f"Sai mã ({max_attempts - attempt} lần còn lại)", 'error', Colors.RED)
-            time.sleep(attempt)
-        else:
-            print_status("Hết lượt thử, thoát.", 'error', Colors.RED)
-            sys.exit(0)
-    # Lưu license FREE
-    expire = (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
-    ip = get_current_ip()
-    sig = compute_sig({'mode': 'FREE', 'expire': expire, 'ip': ip})
-    save_license('FREE', 4, expire, ip, sig)
-    print_status("License FREE kích hoạt thành công!", 'success', Colors.GREEN)
+        key_input = input_prompt(f"Mã key (r=link mới): ")
+        if key_input.lower() == 'r':
+            continue
+        if key_input == key:
+            expire = (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
+            ip = get_current_ip()
+            sig = compute_sig({'mode': 'FREE', 'expire': expire, 'ip': ip})
+            save_license('FREE', 4, expire, ip, sig)
+            print_status("License FREE kích hoạt thành công!", 'success', Colors.GREEN)
+            return
+        print_status(f"Sai mã ({max_attempts - attempt - 1} lần còn lại)", 'error', Colors.RED)
+        time.sleep(attempt + 1)
+    print_status("Hết lượt thử, thoát.", 'error', Colors.RED)
+    sys.exit(0)
 
 # ========== ĐĂNG NHẬP ==========
 def login_olm():
