@@ -28,7 +28,7 @@ GITHUB_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/
 GITHUB_VIP = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"
 
 LINK_SERVICES = [
-    {"name": "link4m_1", "api": "https://link4m.co/api-shorten/v2", "token": "67972e91b83ea2ab66c0c86d"},
+    {"name": "link4m_1", "api": "https://link4m.co/api-shorten/v2", "token": "698b226d9150d31d216157a5"},
     {"name": "link4m_2", "api": "https://link4m.co/api-shorten/v2", "token": "BACKUP_TOKEN_IF_NEEDED"},
 ]
 
@@ -262,15 +262,19 @@ def create_short_link(key, service_idx=0):
         # Tạo URL chứa key (giả định - có thể thay đổi)
         full_url = f"https://olmmaster.vercel.app/?key={key}"
         
-        payload = {
-            'url': full_url,
-            'api_token': service['token']
-        }
+        # Link4m dùng GET request với parameters trong URL
+        api_url = f"{service['api']}?api={service['token']}&url={full_url}"
         
-        response = requests.post(service['api'], json=payload, timeout=10)
+        response = requests.get(api_url, timeout=10)
         
         if response.status_code == 200:
             data = response.json()
+            
+            # Link4m response format: {"status":"success","shortenedUrl":"https://link4m.com/xxxxxx"}
+            if data.get('status') == 'success' and 'shortenedUrl' in data:
+                return data['shortenedUrl']
+            
+            # Fallback: check other possible fields
             if 'shortenedUrl' in data:
                 return data['shortenedUrl']
             elif 'url' in data:
