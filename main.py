@@ -15,6 +15,8 @@ import random
 import requests
 import re
 import pickle
+import base64
+import hashlib
 from bs4 import BeautifulSoup
 from datetime import datetime
 
@@ -69,6 +71,25 @@ ICONS = {
 def clear_screen():
     os.system('cls' if os.name == 'nt' else 'clear')
 
+def animate_text(text, color=Colors.WHITE, delay=0.05):
+    for char in text:
+        sys.stdout.write(f"{color}{char}{Colors.END}")
+        sys.stdout.flush()
+        time.sleep(delay)
+    print()
+
+def spinner_animation(message, duration=2, color=Colors.CYAN):
+    spinner = ['|', '/', '-', '\\']
+    end_time = time.time() + duration
+    i = 0
+    print(f"{color}{message}{Colors.END}", end='')
+    while time.time() < end_time:
+        sys.stdout.write(f"\r{color}{message} {spinner[i % 4]}{Colors.END}")
+        sys.stdout.flush()
+        i += 1
+        time.sleep(0.2)
+    print("\r" + " " * (len(message) + 2) + "\r", end='')
+
 def print_centered(text, color=Colors.WHITE, width=60):
     padding = (width - len(text.strip())) // 2
     print(f"{color}{' ' * padding}{text}{Colors.END}")
@@ -100,6 +121,47 @@ def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
 def print_status(message, icon='info', color=Colors.WHITE):
     print(f"{ICONS.get(icon, '')} {color}{message}{Colors.END}")
 
+# ========== BẢO MẬT ==========
+SECRET_KEY = b'OLM_MASTER_PRO_2026_SECRET_KEY_42'
+
+def encrypt_data(data):
+    json_str = json.dumps(data)
+    bytes_data = json_str.encode()
+    xor_data = bytearray(b ^ SECRET_KEY[i % len(SECRET_KEY)] for i, b in enumerate(bytes_data))
+    b85_data = base64.b85encode(xor_data).decode()
+    checksum = hashlib.sha256(b85_data.encode()).hexdigest()[:12]
+    noise_prefix = hashlib.md5(os.urandom(16)).hexdigest()[:8]
+    noise_suffix = noise_prefix[::-1]
+    return f"{noise_prefix}{checksum}{b85_data}{noise_suffix}"
+
+def decrypt_data(encrypted_str):
+    try:
+        noise_len = 8
+        prefix = encrypted_str[:noise_len]
+        suffix = encrypted_str[-noise_len:]
+        if suffix != prefix[::-1]:
+            return None
+        content = encrypted_str[noise_len:-noise_len]
+        checksum = content[:12]
+        b85_data = content[12:]
+        if hashlib.sha256(b85_data.encode()).hexdigest()[:12] != checksum:
+            return None
+        xor_data = base64.b85decode(b85_data)
+        bytes_data = bytes(b ^ SECRET_KEY[i % len(SECRET_KEY)] for i, b in enumerate(xor_data))
+        json_str = bytes_data.decode()
+        return json.loads(json_str)
+    except:
+        return None
+
+def verify_integrity(data):
+    if not data:
+        return False
+    sig_expected = hashlib.sha256(f"{data.get('mode', '')}{data.get('expire', '')}{data.get('ip', '')}".encode()).hexdigest()
+    return data.get('sig') == sig_expected
+
+def compute_sig(data):
+    return hashlib.sha256(f"{data['mode']}{data['expire']}{data['ip']}".encode()).hexdigest()
+
 # ========== LOAD SESSION & LICENSE ==========
 def load_session():
     session_file = os.environ.get('OLM_SESSION_FILE')
@@ -109,9 +171,12 @@ def load_session():
         session = requests.Session()
         session.cookies.update(data['cookies'])
         session.headers.update({
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
             'accept': 'application/json, text/javascript, */*; q=0.01',
+            'accept-language': 'vi-VN,vi;q=0.9,en-US;q=0.8',
             'x-requested-with': 'XMLHttpRequest',
+            'origin': 'https://olm.vn',
+            'referer': 'https://olm.vn/'
         })
         return session, data['user_id'], data['user_name']
     print_status("Không tìm thấy session!", 'error', Colors.RED)
@@ -122,13 +187,13 @@ def load_license():
     if license_file and os.path.exists(license_file):
         with open(license_file, 'r') as f:
             encrypted = f.read()
-        data = decrypt_data(encrypted)  # Sử dụng hàm decrypt từ launcher (giả sử import hoặc copy)
+        data = decrypt_data(encrypted)
         if data and verify_integrity(data):
             return data
     return None
 
 def save_license_updated(data):
-    encrypted = encrypt_data(data)  # Tương tự
+    encrypted = encrypt_data(data)
     license_file = os.environ.get('OLM_LICENSE_FILE')
     with open(license_file, 'w') as f:
         f.write(encrypted)
@@ -141,9 +206,8 @@ def get_remaining_credits(license_data):
 def deduct_credit(license_data, success, is_theory=False):
     if license_data['mode'] == 'VIP':
         return True
-    if is_theory or success:
-        remain = license_data['remain']
-        if remain > 0:
+    if success or is_theory:
+        if license_data['remain'] > 0:
             license_data['remain'] -= 1
             license_data['sig'] = compute_sig(license_data)
             save_license_updated(license_data)
@@ -151,16 +215,13 @@ def deduct_credit(license_data, success, is_theory=False):
             return True
     return False
 
-# ========== HÀM KIỂM TRA BÀI KIỂM TRA ĐÃ LÀM CHƯA (ẨN ĐIỂM) ==========
-# Bỏ hàm này theo yêu cầu
-
 # ========== PHẦN QUÉT BÀI TẬP ==========
 def get_assignments_fixed(session, pages_to_scan=3):
     assignments = []
     seen_links = set()
     for page in range(1, pages_to_scan + 1):
         url = "https://olm.vn/lop-hoc-cua-toi?action=login" if page == 1 else f"https://olm.vn/lop-hoc-cua-toi/page-{page}?action=login"
-        response = session.get(url, headers=HEADERS, timeout=10)
+        response = session.get(url, timeout=10)
         if response.status_code != 200:
             continue
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -181,6 +242,7 @@ def get_assignments_fixed(session, pages_to_scan=3):
             is_video = "[Video]" in loai_raw or "Video" in loai_raw
             is_ly_thuyet = "[Lý thuyết]" in loai_raw or "Ly thuyet" in loai_raw
             is_kiem_tra = "[Kiểm tra]" in loai_raw or "[Kiem tra]" in loai_raw
+            is_bai_tap = not (is_video or is_ly_thuyet or is_kiem_tra)
             is_tu_luan = "[Tự luận]" in loai_raw or "[Tu luan]" in loai_raw
             if is_tu_luan:
                 continue
@@ -203,6 +265,12 @@ def get_assignments_fixed(session, pages_to_scan=3):
                     if "chưa" in span_text or "chưa nộp" in span_text or "làm tiếp" in span_text:
                         should_process = True
                         break
+                    elif "điểm" in span_text and "đúng" in span_text:
+                        should_process = False
+                        break
+                    elif "đã xem" in span_text:
+                        should_process = False
+                        break
             if should_process and href not in seen_links:
                 seen_links.add(href)
                 mon = row.find('span', class_='alert')
@@ -219,7 +287,7 @@ def get_assignments_fixed(session, pages_to_scan=3):
                     'page': page,
                     'is_video': is_video,
                     'is_ly_thuyet': is_ly_thuyet,
-                    'is_bai_tap': not (is_video or is_ly_thuyet or is_kiem_tra),
+                    'is_bai_tap': is_bai_tap,
                     'is_kiem_tra': is_kiem_tra,
                     'is_tu_luan': is_tu_luan
                 })
@@ -323,13 +391,17 @@ def extract_quiz_info(session, url, is_video=False):
             id_cate = cate_match.group(1)
         if not quiz_list:
             if is_video:
+                print_status("Video: Không có quiz_list, sẽ thử phương pháp khác", 'video', Colors.BLUE)
                 return "", 0, id_courseware, id_cate
             else:
+                print_status("Không tìm thấy danh sách câu hỏi", 'error', Colors.RED)
                 return None, 0, id_courseware, id_cate
         question_ids = [qid.strip() for qid in quiz_list.split(',') if qid.strip()]
         total_questions = len(question_ids)
+        print_status(f"Tìm thấy {total_questions} câu hỏi", 'info', Colors.WHITE)
         return quiz_list, total_questions, id_courseware, id_cate
     except Exception as e:
+        print_status(f"Lỗi trích xuất thông tin: {str(e)}", 'error', Colors.RED)
         return None, 0, None, None
 
 def create_data_log_for_normal(total_questions, target_score):
@@ -382,12 +454,14 @@ def submit_assignment(session, assignment, user_id, license_data):
             session, assignment['url'], assignment['is_video']
         )
         if assignment['is_video']:
+            print_status("Đang xử lý video...", 'video', Colors.BLUE)
             success = handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
         else:
             if not quiz_list or total_questions == 0:
                 print_status("Không thể lấy thông tin bài", 'error', Colors.RED)
                 success = False
             else:
+                print_status(f"Đang tạo dữ liệu cho {total_questions} câu...", 'clock', Colors.YELLOW)
                 data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
                 csrf_token = session.cookies.get('XSRF-TOKEN')
                 if not csrf_token:
@@ -429,18 +503,21 @@ def submit_assignment(session, assignment, user_id, license_data):
                     'result': '[]',
                     'ans': '[]'
                 }
-                submit_headers = HEADERS.copy()
+                submit_headers = session.headers.copy()
                 submit_headers['x-csrf-token'] = csrf_token
+                print_status("Đang nộp bài...", 'upload', Colors.YELLOW)
                 response = session.post(
                     'https://olm.vn/course/teacher-static',
                     data=payload,
                     headers=submit_headers,
                     timeout=15
                 )
+                print_status(f"Phản hồi: HTTP {response.status_code}", 'info', Colors.WHITE)
                 success = handle_submission_response(response, target_score)
-        deduct_credit(license_data, success, assignment['is_ly_thuyet'])
         if success:
             print_status(f"{ICONS['success']} HOÀN THÀNH BÀI ({assignment['title']})", 'success', Colors.GREEN + Colors.BOLD)
+            wait_enter()
+        deduct_credit(license_data, success, assignment['is_ly_thuyet'])
         return success
     except Exception as e:
         print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
@@ -452,10 +529,13 @@ def handle_video_submission(session, assignment, user_id, quiz_list, total_quest
         try_video_with_quiz,
         try_video_complex_method,
     ]
-    for method in methods:
+    for i, method in enumerate(methods, 1):
+        print_status(f"Thử phương pháp {i} cho video...", 'video', Colors.BLUE)
         success = method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
         if success:
             return True
+        time.sleep(1)
+    print_status("Tất cả phương pháp đều thất bại", 'error', Colors.RED)
     return False
 
 def try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
@@ -502,7 +582,7 @@ def try_video_simple_method(session, assignment, user_id, quiz_list, total_quest
         }
         if quiz_list:
             payload['quiz_list'] = quiz_list
-        submit_headers = HEADERS.copy()
+        submit_headers = session.headers.copy()
         submit_headers['x-csrf-token'] = csrf_token
         response = session.post(
             'https://olm.vn/course/teacher-static',
@@ -553,7 +633,7 @@ def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions
             'correct': str(len(data_log)),
             'count_problems': str(len(data_log))
         }
-        submit_headers = HEADERS.copy()
+        submit_headers = session.headers.copy()
         submit_headers['x-csrf-token'] = csrf_token
         response = session.post(
             'https://olm.vn/course/teacher-static',
@@ -625,7 +705,7 @@ def try_video_complex_method(session, assignment, user_id, quiz_list, total_ques
         }
         if quiz_list:
             payload['quiz_list'] = quiz_list
-        submit_headers = HEADERS.copy()
+        submit_headers = session.headers.copy()
         submit_headers['x-csrf-token'] = csrf_token
         response = session.post(
             'https://olm.vn/course/teacher-static',
@@ -673,20 +753,21 @@ def solve_from_link(session, user_id, license_data):
     print_header("GIẢI BÀI TỪ LINK")
     url = input(f"{ICONS['link']} {Colors.YELLOW}Dán link bài tập: {Colors.END}").strip()
     if not url.startswith('https://olm.vn/'):
-        print_status("Link không hợp lệ!", 'error', Colors.RED)
+        print_status("Link không hợp lệ! Phải là link OLM", 'error', Colors.RED)
         wait_enter()
         return
     try:
         resp = session.get(url, timeout=10)
         is_video = 'video' in url.lower() or '[Video]' in resp.text
         is_ly_thuyet = 'ly-thuyet' in url.lower() or 'lý-thuyết' in url.lower() or '[Lý thuyết]' in resp.text
-        is_kiem_tra = '[Kiểm tra]' in resp.text
+        is_kiem_tra = '[Kiểm tra]' in resp.text or 'kiem-tra' in url.lower()
         assignment = {
             'title': "Bài từ link",
             'subject': "Tự chọn",
             'type': "Bài tập",
             'status': "Chưa làm",
             'url': url,
+            'page': 1,
             'is_video': is_video,
             'is_ly_thuyet': is_ly_thuyet,
             'is_bai_tap': not (is_video or is_ly_thuyet or is_kiem_tra),
@@ -705,6 +786,8 @@ def solve_from_link(session, user_id, license_data):
         confirm = input(f"\n{Colors.YELLOW}Xác nhận giải bài này? (y/n): {Colors.END}").strip().lower()
         if confirm == 'y':
             submit_assignment(session, assignment, user_id, license_data)
+        else:
+            print_status("Đã hủy", 'warning', Colors.YELLOW)
     except Exception as e:
         print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
 
@@ -718,7 +801,7 @@ def solve_specific(session, user_id, license_data):
         wait_enter()
         return
     display_assignments_table(assignments)
-    selection = input(f"\n{Colors.YELLOW}Chọn bài (0=tất cả, 1,3,5=nhiều bài, 1=1 bài): {Colors.END}").strip()
+    selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (0=tất cả, 1,3,5=nhiều, 1=1 bài): {Colors.END}").strip()
     selected_indices = []
     if selection == '0':
         selected_indices = list(range(len(assignments)))
@@ -728,7 +811,7 @@ def solve_specific(session, user_id, license_data):
         selected_indices = [int(selection) - 1]
     selected = [assignments[i] for i in selected_indices if 0 <= i < len(assignments)]
     if not selected:
-        print_status("Lựa chọn không hợp lệ", 'error', Colors.RED)
+        print_status("Số bài không hợp lệ", 'error', Colors.RED)
         wait_enter()
         return
     target_score = get_target_score()
@@ -736,44 +819,28 @@ def solve_specific(session, user_id, license_data):
     if confirm != 'y':
         return
     success_count = 0
-    total = len(selected)
-    for idx, ass in enumerate(selected, 1):
-        print_status(f"Bài {idx}/{total}", 'info', Colors.BLUE)
-        success = submit_assignment(session, ass, user_id, license_data)
+    total_count = len(selected)
+    for idx, assignment in enumerate(selected, 1):
+        print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
+        success = submit_assignment(session, assignment, user_id, license_data)
         if success:
             success_count += 1
-    print_status(f"Hoàn thành {success_count}/{total} bài", 'success', Colors.GREEN)
+        else:
+            print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
+        if idx < total_count:
+            wait_time = random.randint(2, 5)
+            print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
+            time.sleep(wait_time)
+    print_status(f"Hoàn thành {success_count}/{total_count} bài", 'success', Colors.GREEN)
+    wait_enter()
 
 # ========== MENU CHÍNH ==========
-HEADERS = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36',
-    'accept': 'application/json, text/javascript, */*; q=0.01',
-    'accept-language': 'vi-VN,vi;q=0.9,en-US;q=0.8',
-    'x-requested-with': 'XMLHttpRequest',
-    'origin': 'https://olm.vn',
-    'referer': 'https://olm.vn/'
-}
-
-def main():
-    session, user_id, user_name = load_session()
-    license_data = load_license()
-    if not license_data:
-        print_status("License hết hạn hoặc không hợp lệ!", 'error', Colors.RED)
-        options = {
-            '1': "Quay lại launcher lấy key mới",
-            '2': "Thoát"
-        }
-        print_menu("LỰA CHỌN", options)
-        choice = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
-        if choice == '1':
-            sys.exit(0)
-        else:
-            sys.exit(1)
+def main_menu(session, user_id, user_name, license_data):
     while True:
         print_header("MENU CHÍNH")
         print(f"{ICONS['user']} {Colors.GREEN}Xin chào: {user_name}{Colors.END}")
         remaining = get_remaining_credits(license_data)
-        print_status(f"{ICONS['diamond']} Lượt còn lại: {remaining}", 'info', Colors.CYAN)
+        print_status(f"{ICONS['diamond']} Còn: {remaining} lượt", 'diamond', Colors.CYAN)
         menu_options = {
             '1': f"{ICONS['brain']} Giải bài cụ thể",
             '2': f"{ICONS['link']} Giải từ link",
@@ -787,17 +854,20 @@ def main():
         elif choice == '2':
             solve_from_link(session, user_id, license_data)
         elif choice == '3':
-            delete_lock()
-            sys.exit(0)
+            print_status("Đang đổi tài khoản...", 'refresh', Colors.YELLOW)
+            time.sleep(1)
+            sys.exit(0)  # Quay launcher
         elif choice == '4':
             print_status("Cảm ơn đã sử dụng!", 'exit', Colors.GREEN)
+            time.sleep(1)
             sys.exit(0)
         else:
             print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
+            time.sleep(1)
         if get_remaining_credits(license_data) == 0:
-            print_status("Hết lượt!", 'error', Colors.RED)
+            print_status("⛔ HẾT LƯỢT", 'error', Colors.RED)
             options = {
-                '1': "Quay lại launcher lấy key mới",
+                '1': "Quay launcher lấy key mới",
                 '2': "Thoát"
             }
             print_menu("LỰA CHỌN", options)
@@ -806,6 +876,24 @@ def main():
                 sys.exit(0)
             else:
                 sys.exit(1)
+
+# ========== CHƯƠNG TRÌNH CHÍNH ==========
+def main():
+    session, user_id, user_name = load_session()
+    license_data = load_license()
+    if not license_data:
+        print_status("License hết hạn hoặc không hợp lệ!", 'error', Colors.RED)
+        options = {
+            '1': "Quay launcher lấy key mới",
+            '2': "Thoát"
+        }
+        print_menu("LỰA CHỌN", options)
+        choice = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
+        if choice == '1':
+            sys.exit(0)
+        else:
+            sys.exit(1)
+    main_menu(session, user_id, user_name, license_data)
 
 if __name__ == "__main__":
     try:
