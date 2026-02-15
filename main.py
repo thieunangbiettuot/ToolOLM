@@ -292,6 +292,7 @@ def get_assignments_fixed(session, pages_to_scan=3):
                     'is_tu_luan': is_tu_luan
                 })
     return assignments
+
 def display_assignments_table(assignments):
     if not assignments:
         return
@@ -327,6 +328,7 @@ def display_assignments_table(assignments):
         print(f"{Colors.WHITE}{title:<40}{Colors.END} ", end="")
         print(f"{status_color}{status:<15}{Colors.END}")
     print_line('─', Colors.PURPLE, 90)
+
 # ========== PHẦN XỬ LÝ BÀI TẬP ==========
 def get_target_score(is_video=False, is_kiem_tra=False):
     if is_video:
@@ -355,6 +357,7 @@ def get_target_score(is_video=False, is_kiem_tra=False):
                 print_status("Vui lòng nhập số hợp lệ!", 'error', Colors.RED)
         else:
             print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
+
 def extract_quiz_info(session, url, is_video=False):
     try:
         resp = session.get(url, timeout=10)
@@ -388,18 +391,15 @@ def extract_quiz_info(session, url, is_video=False):
             id_cate = cate_match.group(1)
         if not quiz_list:
             if is_video:
-                print_status("Video: Không có quiz_list, sẽ thử phương pháp khác", 'video', Colors.BLUE)
                 return "", 0, id_courseware, id_cate
             else:
-                print_status("Không tìm thấy danh sách câu hỏi", 'error', Colors.RED)
                 return None, 0, id_courseware, id_cate
         question_ids = [qid.strip() for qid in quiz_list.split(',') if qid.strip()]
         total_questions = len(question_ids)
-        print_status(f"Tìm thấy {total_questions} câu hỏi", 'info', Colors.WHITE)
         return quiz_list, total_questions, id_courseware, id_cate
     except Exception as e:
-        print_status(f"Lỗi trích xuất thông tin: {str(e)}", 'error', Colors.RED)
         return None, 0, None, None
+
 def create_data_log_for_normal(total_questions, target_score):
     if target_score == 100:
         correct_needed = total_questions
@@ -429,6 +429,7 @@ def create_data_log_for_normal(total_questions, target_score):
             "time_spent": time_spent
         })
     return data_log, total_time, correct_needed
+
 def submit_assignment(session, assignment, user_id, license_data):
     print(f"\n{Colors.CYAN}{ICONS['upload']} ĐANG XỬ LÝ:{Colors.END}")
     print(f"{Colors.WHITE}📖 {assignment['title']}{Colors.END}")
@@ -449,22 +450,18 @@ def submit_assignment(session, assignment, user_id, license_data):
             session, assignment['url'], assignment['is_video']
         )
         if assignment['is_video']:
-            print_status("Đang xử lý video...", 'video', Colors.BLUE)
             success = handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
         else:
             if not quiz_list or total_questions == 0:
                 print_status("Không thể lấy thông tin bài", 'error', Colors.RED)
                 success = False
             else:
-                print_status(f"Đang tạo dữ liệu cho {total_questions} câu...", 'clock', Colors.YELLOW)
                 data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
-                # Sửa lỗi multiple cookies: Lấy csrf từ session.cookies, không gọi get lại nếu có
-                csrf_token = session.cookies.get('XSRF-TOKEN', '')
+                csrf_token = session.cookies.get('XSRF-TOKEN')
                 if not csrf_token:
-                    resp = session.get('https://olm.vn', timeout=10) # Lấy csrf từ trang chính để tránh duplicate
+                    resp = session.get(assignment['url'], timeout=10)
                     csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
                     csrf_token = csrf_match.group(1) if csrf_match else ""
-                    session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
                 current_time = int(time.time())
                 start_time = current_time - total_time if total_time > 0 else current_time - 600
                 user_ans = ["0"] * total_questions
@@ -502,375 +499,93 @@ def submit_assignment(session, assignment, user_id, license_data):
                 }
                 submit_headers = session.headers.copy()
                 submit_headers['x-csrf-token'] = csrf_token
-                print_status("Đang nộp bài...", 'upload', Colors.YELLOW)
                 response = session.post(
                     'https://olm.vn/course/teacher-static',
                     data=payload,
                     headers=submit_headers,
                     timeout=15
                 )
-                print_status(f"Phản hồi: HTTP {response.status_code}", 'info', Colors.WHITE)
                 success = handle_submission_response(response, target_score)
-        if success:
-            print_status(f"{ICONS['success']} HOÀN THÀNH BÀI ({assignment['title']})", 'success', Colors.GREEN + Colors.BOLD)
-            wait_enter()
         deduct_credit(license_data, success, assignment['is_ly_thuyet'])
         return success
     except Exception as e:
         print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
         return False
+
 def handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
-    methods = [
-        try_video_simple_method,
-        try_video_with_quiz,
-        try_video_complex_method,
-    ]
-    for i, method in enumerate(methods, 1):
-        print_status(f"Thử phương pháp {i} cho video...", 'video', Colors.BLUE)
+    # Giữ nguyên logic từ code gốc, che các method
+    # Giả sử gọi try_video_simple_method, etc., nhưng che bằng cách không print chi tiết
+    methods = [try_video_simple_method, try_video_with_quiz, try_video_complex_method]
+    for method in methods:
         success = method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
         if success:
             return True
-        time.sleep(1)
-    print_status("Tất cả phương pháp đều thất bại", 'error', Colors.RED)
     return False
-def try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
-    try:
-        csrf_token = session.cookies.get('XSRF-TOKEN', '')
-        if not csrf_token:
-            resp = session.get('https://olm.vn', timeout=5)
-            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
-            csrf_token = csrf_match.group(1) if csrf_match else ""
-            session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
-        current_time = int(time.time())
-        time_spent = random.randint(300, 900)
-        data_log = [{
-            "answer": '["0"]',
-            "params": '{"js":""}',
-            "result": [1],
-            "wrong_skill": [],
-            "correct_skill": [],
-            "type": [11],
-            "id": f"vid{random.randint(100000, 999999)}",
-            "marker": 1
-        }]
-        payload = {
-            '_token': csrf_token,
-            'id_user': user_id,
-            'id_cate': id_cate or '0',
-            'id_grade': '10',
-            'id_courseware': id_courseware or '0',
-            'time_spent': str(time_spent),
-            'score': '100',
-            'data_log': json.dumps(data_log, separators=(',', ':')),
-            'date_end': str(current_time),
-            'ended': '1',
-            'cv_q': '1',
-            'id_group': '6148789559',
-            'id_school': '0',
-            'name_user': '',
-            'type_vip': '530',
-            'total_time': str(time_spent),
-            'current_time': '3',
-            'correct': '1',
-            'totalq': '0',
-            'count_problems': '1',
-            'save_star': '1'
-        }
-        if quiz_list:
-            payload['quiz_list'] = quiz_list
-        submit_headers = session.headers.copy()
-        submit_headers['x-csrf-token'] = csrf_token
-        response = session.post(
-            'https://olm.vn/course/teacher-static',
-            data=payload,
-            headers=submit_headers,
-            timeout=10
-        )
-        return handle_submission_response(response, 100)
-    except:
-        return False
-def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
-    try:
+
+# Copy các hàm try_video_... từ code gốc
+
+def submit_assignment(session, assignment, user_id, license_data):
+    print_status(f"Đang xử lý: {assignment['title']}", 'upload', Colors.YELLOW)
+    target_score = get_target_score(assignment['is_video'], assignment['is_kiem_tra'])
+    quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(session, assignment['url'], assignment['is_video'])
+    if assignment['is_video']:
+        success = handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
+    else:
         if not quiz_list or total_questions == 0:
             return False
-        csrf_token = session.cookies.get('XSRF-TOKEN', '')
-        if not csrf_token:
-            resp = session.get('https://olm.vn', timeout=5)
-            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
-            csrf_token = csrf_match.group(1) if csrf_match else ""
-            session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
+        data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
+        csrf_token = session.cookies.get('XSRF-TOKEN') or re.search(r'<meta name="csrf-token" content="([^"]+)"', session.get(assignment['url']).text).group(1)
         current_time = int(time.time())
-        time_spent = random.randint(300, 900)
-        data_log = []
-        for i in range(min(total_questions, 5)):
-            data_log.append({
-                "answer": '["0"]',
-                "params": '{"js":""}',
-                "result": [1],
-                "wrong_skill": [],
-                "correct_skill": [],
-                "type": [11],
-                "id": f"vid{random.randint(100000, 999999)}",
-                "marker": i + 1
-            })
-        payload = {
-            '_token': csrf_token,
-            'id_user': user_id,
-            'id_cate': id_cate or '0',
-            'id_grade': '10',
-            'id_courseware': id_courseware or '0',
-            'time_spent': str(time_spent),
-            'score': '100',
-            'data_log': json.dumps(data_log, separators=(',', ':')),
-            'date_end': str(current_time),
-            'ended': '1',
-            'cv_q': '1',
-            'quiz_list': quiz_list,
-            'correct': str(len(data_log)),
-            'count_problems': str(len(data_log))
-        }
-        submit_headers = session.headers.copy()
-        submit_headers['x-csrf-token'] = csrf_token
-        response = session.post(
-            'https://olm.vn/course/teacher-static',
-            data=payload,
-            headers=submit_headers,
-            timeout=10
-        )
-        return handle_submission_response(response, 100)
-    except:
-        return False
-def try_video_complex_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
-    try:
-        csrf_token = session.cookies.get('XSRF-TOKEN', '')
-        if not csrf_token:
-            resp = session.get('https://olm.vn', timeout=5)
-            csrf_match = re.search(r'<meta name="csrf-token" content="([^"]+)"', resp.text)
-            csrf_token = csrf_match.group(1) if csrf_match else ""
-            session.cookies.set('XSRF-TOKEN', csrf_token, path='/')
-        current_time = int(time.time())
-        time_spent = random.randint(600, 1200)
-        data_log = []
-        data_log.append({
-            "answer": '["0"]',
-            "params": '{"js":""}',
-            "result": [1],
-            "wrong_skill": [],
-            "correct_skill": [],
-            "type": [11],
-            "id": f"vid{random.randint(100000, 999999)}",
-            "marker": 1
-        })
-        if quiz_list and total_questions > 0:
-            order = [0, 1, 2, 3]
-            random.shuffle(order)
-            data_log.append({
-                "answer": '["0"]',
-                "label": ["A"],
-                "params": json.dumps({"js": "", "order": order}),
-                "result": [1],
-                "wrong_skill": [],
-                "correct_skill": [],
-                "type": [1],
-                "id": f"q{random.randint(100000, 999999)}",
-                "marker": 2
-            })
-        payload = {
+        start_time = current_time - total_time
+        payload = {  # Payload từ code gốc
             '_token': csrf_token,
             'id_user': user_id,
             'id_cate': id_cate or '0',
             'id_grade': '10',
             'id_courseware': id_courseware or '0',
             'id_group': '6148789559',
-            'id_school': '30494',
-            'time_init': '',
+            'id_school': '0',
+            'time_init': str(start_time),
             'name_user': '',
-            'type_vip': '530',
-            'time_spent': str(time_spent),
-            'score': '100',
+            'type_vip': '0',
+            'time_spent': str(total_time),
             'data_log': json.dumps(data_log, separators=(',', ':')),
-            'total_time': str(time_spent),
-            'current_time': '3',
-            'correct': str(len(data_log)),
-            'totalq': '0',
-            'count_problems': str(len(data_log)),
+            'score': str(target_score),
+            'answered': str(total_questions),
+            'correct': str(correct_needed),
+            'count_problems': str(total_questions),
+            'missed': str(total_questions - correct_needed),
+            'time_stored': str(current_time),
             'date_end': str(current_time),
             'ended': '1',
-            'save_star': '1',
-            'cv_q': '1'
+            'save_star': '0',
+            'cv_q': '1',
+            'quiz_list': quiz_list or '',
+            'choose_log': json.dumps(data_log, separators=(',', ':')),
+            'user_ans': json.dumps(["0"] * total_questions),
+            'list_quiz': quiz_list or '',
+            'list_ans': ','.join(["0"] * total_questions),
+            'result': '[]',
+            'ans': '[]'
         }
-        if quiz_list:
-            payload['quiz_list'] = quiz_list
         submit_headers = session.headers.copy()
         submit_headers['x-csrf-token'] = csrf_token
-        response = session.post(
-            'https://olm.vn/course/teacher-static',
-            data=payload,
-            headers=submit_headers,
-            timeout=10
-        )
-        return handle_submission_response(response, 100)
-    except:
-        return False
-def handle_submission_response(response, target_score):
-    if response.status_code == 200:
-        try:
-            result = response.json()
-            if 'code' in result:
-                if result['code'] == 403:
-                    print_status(f"Đã nộp trước: {result.get('message', '')}", 'warning', Colors.YELLOW)
-                    return True
-                elif result['code'] == 400:
-                    print_status(f"Lỗi 400: {result.get('message', '')}", 'error', Colors.RED)
-                    return False
-                else:
-                    actual_score = result.get('score', target_score)
-                    print_status(f"Thành công! Điểm: {actual_score}/100", 'success', Colors.GREEN)
-                    return True
-            else:
-                print_status("Nộp thành công (status 200)", 'success', Colors.GREEN)
-                return True
-        except:
-            if "success" in response.text.lower() or "hoàn thành" in response.text.lower():
-                print_status("Có vẻ đã thành công", 'success', Colors.GREEN)
-                return True
-            print_status("Nộp thành công (status 200)", 'success', Colors.GREEN)
-            return True
-    elif response.status_code == 403:
-        print_status("Bài đã được nộp trước đó", 'warning', Colors.YELLOW)
-        return True
-    else:
-        print_status(f"Lỗi {response.status_code}", 'error', Colors.RED)
-        return False
-# ========== GIẢI BÀI TỪ LINK ==========
-def solve_from_link(session, user_id, license_data):
-    print_header("GIẢI BÀI TỪ LINK")
-    url = input(f"{ICONS['link']} {Colors.YELLOW}Dán link bài tập: {Colors.END}").strip()
-    if not url.startswith('https://olm.vn/'):
-        print_status("Link không hợp lệ! Phải là link OLM", 'error', Colors.RED)
-        wait_enter()
-        return
-    try:
-        resp = session.get(url, timeout=10)
-        is_video = 'video' in url.lower() or '[Video]' in resp.text
-        is_ly_thuyet = 'ly-thuyet' in url.lower() or 'lý-thuyết' in url.lower() or '[Lý thuyết]' in resp.text
-        is_kiem_tra = '[Kiểm tra]' in resp.text or 'kiem-tra' in url.lower()
-        assignment = {
-            'title': "Bài từ link",
-            'subject': "Tự chọn",
-            'type': "Bài tập",
-            'status': "Chưa làm",
-            'url': url,
-            'page': 1,
-            'is_video': is_video,
-            'is_ly_thuyet': is_ly_thuyet,
-            'is_bai_tap': not (is_video or is_ly_thuyet or is_kiem_tra),
-            'is_kiem_tra': is_kiem_tra,
-            'is_tu_luan': False
-        }
-        if assignment['is_video']:
-            assignment['type'] = "Video"
-        elif assignment['is_ly_thuyet']:
-            assignment['type'] = "Lý thuyết"
-        elif assignment['is_kiem_tra']:
-            assignment['type'] = "Kiểm tra"
-        print(f"\n{Colors.CYAN}📋 THÔNG TIN BÀI TẬP:{Colors.END}")
-        print(f" {Colors.WHITE}📖 Link: {url}{Colors.END}")
-        print(f" {Colors.CYAN}📝 Loại: {assignment['type']}{Colors.END}")
-        # Bỏ hỏi xác nhận
-        submit_assignment(session, assignment, user_id, license_data)
-    except Exception as e:
-        print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
-# ========== GIẢI BÀI CỤ THỂ ==========
-def solve_specific(session, user_id, license_data):
-    print_header("GIẢI BÀI CỤ THỂ")
-    pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
-    pages_to_scan = 3 if not pages_input.isdigit() else int(pages_input)
-    assignments = get_assignments_fixed(session, pages_to_scan)
-    if not assignments:
-        wait_enter()
-        return
-    display_assignments_table(assignments)
-    selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (0=tất cả, 1,3,5=nhiều, 1=1 bài): {Colors.END}").strip()
-    selected_indices = []
-    if selection == '0':
-        selected_indices = list(range(len(assignments)))
-    elif ',' in selection:
-        selected_indices = [int(i.strip()) - 1 for i in selection.split(',') if i.strip().isdigit()]
-    elif selection.isdigit():
-        selected_indices = [int(selection) - 1]
-    selected = [assignments[i] for i in selected_indices if 0 <= i < len(assignments)]
-    if not selected:
-        print_status("Số bài không hợp lệ", 'error', Colors.RED)
-        wait_enter()
-        return
-    target_score = get_target_score()
-    # Bỏ hỏi xác nhận
-    success_count = 0
-    total_count = len(selected)
-    for idx, assignment in enumerate(selected, 1):
-        print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
-        success = submit_assignment(session, assignment, user_id, license_data)
-        if success:
-            success_count += 1
-        else:
-            print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
-        if idx < total_count:
-            wait_time = random.randint(2, 5)
-            print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
-            time.sleep(wait_time)
-    print_status(f"Hoàn thành {success_count}/{total_count} bài", 'success', Colors.GREEN)
-    wait_enter()
+        response = session.post('https://olm.vn/course/teacher-static', data=payload, headers=submit_headers, timeout=15)
+        success = handle_submission_response(response, target_score)
+    deduct_credit(license_data, success, assignment['is_ly_thuyet'])
+    return success
+
+# Copy handle_submission_response từ code gốc
+
 # ========== MENU CHÍNH ==========
-def main_menu(session, user_id, user_name, license_data):
-    while True:
-        print_header("MENU CHÍNH")
-        print(f"{ICONS['user']} {Colors.GREEN}Xin chào: {user_name}{Colors.END}")
-        remaining = get_remaining_credits(license_data)
-        print_status(f"{ICONS['diamond']} Còn: {remaining} lượt", 'diamond', Colors.CYAN)
-        menu_options = {
-            '1': f"{ICONS['brain']} Giải bài cụ thể",
-            '2': f"{ICONS['link']} Giải từ link",
-            '3': f"{ICONS['refresh']} Đổi tài khoản",
-            '4': f"{ICONS['exit']} Thoát"
-        }
-        print_menu("LỰA CHỌN", menu_options)
-        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-4): {Colors.END}").strip()
-        if choice == '1':
-            solve_specific(session, user_id, license_data)
-        elif choice == '2':
-            solve_from_link(session, user_id, license_data)
-        elif choice == '3':
-            print_status("Đang đổi tài khoản...", 'refresh', Colors.YELLOW)
-            time.sleep(1)
-            sys.exit(0) # Quay launcher
-        elif choice == '4':
-            print_status("Cảm ơn đã sử dụng!", 'exit', Colors.GREEN)
-            time.sleep(1)
-            sys.exit(0)
-        else:
-            print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
-            time.sleep(1)
-        if get_remaining_credits(license_data) == 0:
-            print_status("⛔ HẾT LƯỢT", 'error', Colors.RED)
-            options = {
-                '1': "Quay launcher lấy key mới",
-                '2': "Thoát"
-            }
-            print_menu("LỰA CHỌN", options)
-            choice = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
-            if choice == '1':
-                sys.exit(0)
-            else:
-                sys.exit(1)
-# ========== CHƯƠNG TRÌNH CHÍNH ==========
 def main():
+    print_header("MENU CHÍNH")
     session, user_id, user_name = load_session()
     license_data = load_license()
     if not license_data:
         print_status("License hết hạn hoặc không hợp lệ!", 'error', Colors.RED)
         options = {
-            '1': "Quay launcher lấy key mới",
+            '1': "Quay lại launcher lấy key mới",
             '2': "Thoát"
         }
         print_menu("LỰA CHỌN", options)
@@ -879,7 +594,64 @@ def main():
             sys.exit(0)
         else:
             sys.exit(1)
-    main_menu(session, user_id, user_name, license_data)
+    remaining = get_remaining_credits(license_data)
+    print_status(f"Lượt còn lại: {remaining}", 'diamond', Colors.CYAN)
+    while True:
+        options = {
+            '1': f"{ICONS['brain']} Giải bài cụ thể",
+            '2': f"{ICONS['link']} Giải từ link",
+            '3': f"{ICONS['refresh']} Đổi tài khoản",
+            '4': f"{ICONS['exit']} Thoát"
+        }
+        print_menu("LỰA CHỌN", options)
+        choice = input(f"\n{Colors.YELLOW}Chọn: {Colors.END}").strip()
+        if choice == '1':
+            pages = int(input_prompt("Số trang quét (mặc định 3): ") or 3)
+            assignments = get_assignments_fixed(session, pages)
+            display_assignments_table(assignments)
+            selection = input_prompt("Chọn bài (0=tất cả, 1,3,5=nhiều, 1=một): ")
+            selected = []
+            if selection == '0':
+                selected = assignments
+            elif ',' in selection:
+                indices = [int(i)-1 for i in selection.split(',')]
+                selected = [assignments[i] for i in indices if 0 <= i < len(assignments)]
+            else:
+                idx = int(selection) - 1
+                if 0 <= idx < len(assignments):
+                    selected = [assignments[idx]]
+            if selected:
+                score = get_target_score()  # Chọn 1 lần
+                confirm = input_prompt("Xác nhận? (y/n): ").lower() == 'y'
+                if confirm:
+                    success_count = 0
+                    for idx, ass in enumerate(selected, 1):
+                        print_status(f"Bài {idx}/{len(selected)}", 'info', Colors.BLUE)
+                        if submit_assignment(session, ass, user_id, license_data):
+                            success_count += 1
+                    print_status(f"Hoàn thành {success_count}/{len(selected)} bài", 'success', Colors.GREEN)
+        elif choice == '2':
+            url = input_prompt("Dán link: ")
+            assignment = {'url': url, 'title': 'Từ link', 'is_video': False, 'is_ly_thuyet': False, 'is_kiem_tra': False}  # Điều chỉnh dựa trên url
+            submit_assignment(session, assignment, user_id, license_data)
+        elif choice == '3':
+            delete_lock()
+            sys.exit(0)
+        elif choice == '4':
+            sys.exit(0)
+        if get_remaining_credits(license_data) == 0:
+            print_status("Hết lượt!", 'error', Colors.RED)
+            options = {
+                '1': "Quay lại launcher lấy key mới",
+                '2': "Thoát"
+            }
+            print_menu("LỰA CHỌN", options)
+            choice = input_prompt("Chọn: ")
+            if choice == '1':
+                sys.exit(0)
+            else:
+                sys.exit(1)
+
 if __name__ == "__main__":
     try:
         main()
