@@ -221,13 +221,14 @@ def login_olm():
     if not username or not password:
         print_status("Username/Password rỗng", 'error', C.R)
         time.sleep(2)
-        return None, None, None
+        return None, None, None, False
     
     if lock and lock.get('user') != username:
         print_status("Key đã liên kết với tài khoản khác", 'error', C.R)
         print_status("Chọn [3] Đổi tài khoản để thay đổi", 'info', C.Y)
         time.sleep(3)
-        return None, None, None
+        # Trả về 4 giá trị để tránh lỗi unpack
+        return None, None, None, False
     
     print_status("Đang đăng nhập...", 'info', C.Y)
     
@@ -425,7 +426,7 @@ def get_key():
         print_box("VƯỚT LINK ĐỂ LẤY KEY", [f"Link: {short_url}"], C.Y)
         
         for i in range(3):
-            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
+            inp = input(f"{C.Y}🔑 Mã (r=link mới): {C_E}").strip()
             
             if inp.lower() == 'r':
                 break
@@ -488,6 +489,42 @@ def run_tool(session, user_id, user_name):
         print_status(f"Lỗi: {e}", 'error', C.R)
         wait_enter()
 
+# ========== MENU ĐỔI TÀI KHOẢN ==========
+def menu_change_account():
+    """Menu đổi tài khoản"""
+    banner()
+    
+    print_box("ĐỔI TÀI KHOẢN", [
+        "Key sẽ được giữ lại nếu còn lượt",
+        "Vui lòng đăng nhập tài khoản mới"
+    ], C.Y)
+    
+    # Xóa account lock
+    clear_lock()
+    
+    # Đăng nhập mới
+    session, user_id, user_name, is_vip = login_olm()
+    
+    if not session:
+        print_status("Đăng nhập thất bại!", 'error', C.R)
+        wait_enter()
+        return False
+    
+    # Kiểm tra license
+    if is_vip:
+        save_lic("VIP", 999999)
+    else:
+        # Giữ license cũ nếu còn lượt
+        existing_lic = load_lic()
+        if not existing_lic or existing_lic.get('remain', 0) <= 0:
+            print_box("KÍCH HOẠT KEY FREE", [])
+            if not get_key():
+                return False
+    
+    # Chạy tool
+    run_tool(session, user_id, user_name)
+    return True
+
 # ========== MAIN ==========
 def main():
     """Hàm chính"""
@@ -496,6 +533,14 @@ def main():
         sys.exit(0)
     
     try:
+        # Kiểm tra có yêu cầu đổi tài khoản không
+        if len(sys.argv) > 1 and sys.argv[1] == '--change-account':
+            if menu_change_account():
+                sys.exit(0)
+            else:
+                sys.exit(1)
+        
+        # Đăng nhập bình thường
         session, user_id, user_name, is_vip = login_olm()
         if not session:
             sys.exit(1)
@@ -524,7 +569,7 @@ def main():
         sys.exit(0)
         
     except KeyboardInterrupt:
-        print(f"\n{C.Y}Tạm biệt!{C.E}")
+        print(f"\n{C.Y}Tạm biệt!{C_E}")
         sys.exit(0)
 
 if __name__ == "__main__":
