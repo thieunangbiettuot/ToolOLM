@@ -1,282 +1,748 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""OLM MASTER PRO - LAUNCHER"""
+"""
+╔══════════════════════════════════════════════════════════════╗
+║              OLM MASTER PRO V1.0 - LAUNCHER                  ║
+║                  Created by: Tuấn Anh                        ║
+╚══════════════════════════════════════════════════════════════╝
+"""
 
-import os, sys, time, json, random, hashlib, uuid, base64, pickle, subprocess, tempfile, platform, shutil
-from datetime import datetime, timedelta
-try:
-    import requests
-except:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "requests", "--quiet"])
-    import requests
+import os
+import sys
+import time
+import json
+import hashlib
+import uuid
+import base64
+import random
+import requests
 import re
+import pickle
+import tempfile
+import subprocess
+import platform
+from datetime import datetime, timedelta
 
-# ==================== CONFIG ====================
-GITHUB_MAIN = "https://github.com/thieunangbiettuot/ToolOLM/raw/refs/heads/main/main.py"
+# ========== CẤU HÌNH ==========
+GITHUB_MAIN = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/main.py"
 GITHUB_VIP = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"
-LINK_API = "https://link4m.co/api-shorten/v2"
-LINK_TOKEN = "698b226d9150d31d216157a5"
-SECRET = b"OLM_PRO_2026_SECURE"
 
-# ==================== COLORS ====================
+LINK_SERVICES = [
+    {"name": "link4m_1", "api": "https://link4m.co/api-shorten/v2", "token": "67972e91b83ea2ab66c0c86d"},
+    {"name": "link4m_2", "api": "https://link4m.co/api-shorten/v2", "token": "BACKUP_TOKEN_IF_NEEDED"},
+]
+
+# ========== MÀU SẮC ==========
 class C:
-    G='\033[92m';Y='\033[93m';R='\033[91m';CY='\033[96m';B='\033[94m';M='\033[95m';W='\033[97m';BOLD='\033[1m';E='\033[0m'
-I={'ok':'✅','no':'❌','warn':'⚠️','info':'ℹ️','user':'👤','key':'🔑','crown':'👑','gem':'💎','fire':'🔥','rocket':'🚀','zap':'⚡','link':'🔗'}
+    R = '\033[91m'  # Red
+    G = '\033[92m'  # Green
+    Y = '\033[93m'  # Yellow
+    B = '\033[94m'  # Blue
+    M = '\033[95m'  # Magenta
+    C = '\033[96m'  # Cyan
+    W = '\033[97m'  # White
+    BD = '\033[1m'  # Bold
+    E = '\033[0m'   # End
 
-def clear():os.system('cls' if os.name=='nt' else 'clear')
-def w():
-    try:return min(shutil.get_terminal_size().columns,100)
-    except:return 80
-def logo():
-    clear();width=w()
-    lines=[" ██████╗ ██╗     ███╗   ███╗    ███╗   ███╗ █████╗ ","██╔═══██╗██║     ████╗ ████║    ████╗ ████║██╔══██╗","██║   ██║██║     ██╔████╔██║    ██╔████╔██║███████║","██║   ██║██║     ██║╚██╔╝██║    ██║╚██╔╝██║██╔══██║","╚██████╔╝███████╗██║ ╚═╝ ██║    ██║ ╚═╝ ██║██║  ██║"," ╚═════╝ ╚══════╝╚═╝     ╚═╝    ╚═╝     ╚═╝╚═╝  ╚═╝"]
-    print(f"\n{C.CY}{C.BOLD}")
-    for l in lines:print(" "*((width-len(l))//2)+l)
-    print(f"\n{' '*((width-34)//2)}MASTER PRO - Created by Tuấn Anh{C.E}\n")
-def hdr(t=""):
-    logo()
-    if t:width=w();print(f"{C.CY}{'─'*width}{C.E}");print(f"{C.Y}{' '*((width-len(t))//2)}{t.upper()}{C.E}");print(f"{C.CY}{'─'*width}{C.E}\n")
-def st(m,i='info',c=C.W):print(f"{I.get(i,I['info'])} {c}{m}{C.E}")
-def wait(p="Nhấn Enter..."):input(f"\n{C.Y}{p}{C.E}")
+# ========== PHÁT HIỆN HỆ ĐIỀU HÀNH ==========
+def get_os_type():
+    """Phát hiện hệ điều hành"""
+    system = platform.system().lower()
+    if 'android' in platform.platform().lower() or 'ANDROID_ROOT' in os.environ or 'TERMUX_VERSION' in os.environ:
+        return 'android'
+    return system
 
-# ==================== DEVICE ====================
-def dev_hash():return hashlib.md5(f"{platform.node()}{uuid.getnode()}".encode()).hexdigest()[:8]
-def get_paths():
-    s=platform.system();h=dev_hash()
-    if s=="Windows":b=os.path.join(os.environ.get('APPDATA',''),'Microsoft','Windows','.cache')
-    elif os.path.exists('/data/data'):b=os.path.expanduser('~/.cache/.android')
-    else:b=os.path.expanduser('~/.config/.cache')
-    os.makedirs(b,exist_ok=True)
-    return {'lic':os.path.join(b,f'.{h}sc'),'ses':os.path.join(b,f'.{h}ss'),'acc':os.path.join(b,f'.{h}ac'),'lck':os.path.join(b,f'.{h}lk')}
-P=get_paths()
+def is_android():
+    """Kiểm tra có phải Android/Termux không"""
+    return get_os_type() == 'android'
 
-# ==================== CRYPTO ====================
-def xor(d,k):return bytes([d[i]^k[i%len(k)]for i in range(len(d))])
-def enc(dd):
+def get_terminal_width():
+    """Lấy độ rộng terminal"""
     try:
-        js=json.dumps(dd,separators=(',',':'));e=xor(js.encode('utf-8'),SECRET);b=base64.b85encode(e).decode('ascii');cs=hashlib.sha256(b.encode()).hexdigest()[:12];n=hashlib.md5(str(time.time()).encode()).hexdigest()
-        return f"{n[:8]}{cs}{b}{n[-8:][::-1]}"
-    except:return None
-def dec(es):
-    try:
-        if not es or len(es)<28:return None
-        d=es[8:-8];cs=d[:12];b=d[12:]
-        if hashlib.sha256(b.encode()).hexdigest()[:12]!=cs:return None
-        e=base64.b85decode(b.encode('ascii'));de=xor(e,SECRET)
-        return json.loads(de.decode('utf-8'))
-    except:return None
-def sv(fp,dd):e=enc(dd);return open(fp,'w').write(e)if e else False
-def ld(fp):
-    if not os.path.exists(fp):return None
-    try:return dec(open(fp,'r').read())
-    except:return None
+        cols = os.get_terminal_size().columns
+        if is_android():
+            return min(cols - 2, 45)
+        return min(cols - 2, 68)
+    except:
+        return 45 if is_android() else 60
 
-# ==================== VIP ====================
-def chk_vip(u):
+# ========== ĐƯỜNG DẪN FILE ==========
+def get_base_path():
+    """Lấy đường dẫn cơ sở để lưu file"""
+    os_type = get_os_type()
+    
+    if os_type == 'windows':
+        base = os.path.join(os.environ.get('LOCALAPPDATA', os.path.expanduser('~')), 
+                           'Microsoft', 'Windows', 'INetCache', 'IE')
+    elif os_type == 'darwin':  # macOS
+        base = os.path.join(os.path.expanduser('~'), 'Library', 'Application Support', 
+                           'com.apple.Safari')
+    elif os_type == 'android':
+        base = os.path.join(os.path.expanduser('~'), '.cache', 'google-chrome')
+    else:  # Linux
+        base = os.path.join(os.path.expanduser('~'), '.cache', 'mozilla', 'firefox')
+    
+    os.makedirs(base, exist_ok=True)
+    return base
+
+def get_device_hash():
+    """Tạo hash thiết bị duy nhất"""
+    hostname = platform.node()
+    mac = uuid.getnode()
+    device_str = f"{hostname}{mac}{platform.system()}"
+    return hashlib.md5(device_str.encode()).hexdigest()[:12]
+
+DEVICE_HASH = get_device_hash()
+BASE_PATH = get_base_path()
+
+# File paths
+LICENSE_FILE = os.path.join(BASE_PATH, f'.{DEVICE_HASH}sc')
+SESSION_FILE = os.path.join(BASE_PATH, f'.{DEVICE_HASH}ss')
+ACCOUNTS_FILE = os.path.join(BASE_PATH, f'.{DEVICE_HASH}ac')
+LOCK_FILE = os.path.join(BASE_PATH, f'.{DEVICE_HASH}lk')
+
+# ========== MÃ HÓA/GIẢI MÃ ==========
+SECRET_KEY = f"{DEVICE_HASH}:olmv1:secret".encode()
+
+def xor_cipher(data, key):
+    """XOR encryption/decryption"""
+    key_len = len(key)
+    return bytes([data[i] ^ key[i % key_len] for i in range(len(data))])
+
+def encode_data(data):
+    """Mã hóa dữ liệu"""
     try:
-        r=requests.get(GITHUB_VIP,timeout=10)
-        if r.status_code==200:
-            vl=[l.strip().lower()for l in r.text.split('\n')if l.strip()and not l.strip().startswith('#')]
-            return u.lower()in vl
-    except:pass
+        # Convert to JSON
+        json_str = json.dumps(data)
+        json_bytes = json_str.encode('utf-8')
+        
+        # XOR encrypt
+        encrypted = xor_cipher(json_bytes, SECRET_KEY)
+        
+        # Base85 encode
+        b85 = base64.b85encode(encrypted).decode('ascii')
+        
+        # Add checksum
+        checksum = hashlib.sha256(b85.encode()).hexdigest()[:12]
+        
+        # Add noise
+        noise_prefix = hashlib.md5(f"{time.time()}{random.random()}".encode()).hexdigest()[:8]
+        noise_suffix = noise_prefix[::-1]
+        
+        # Combine
+        result = f"{noise_prefix}{checksum}{b85}{noise_suffix}"
+        return result
+    except Exception as e:
+        return None
+
+def decode_data(encoded):
+    """Giải mã dữ liệu"""
+    try:
+        # Remove noise
+        data = encoded[8:-8]
+        
+        # Extract checksum and b85
+        checksum = data[:12]
+        b85 = data[12:]
+        
+        # Verify checksum
+        expected_checksum = hashlib.sha256(b85.encode()).hexdigest()[:12]
+        if checksum != expected_checksum:
+            return None
+        
+        # Decode
+        encrypted = base64.b85decode(b85)
+        decrypted = xor_cipher(encrypted, SECRET_KEY)
+        json_str = decrypted.decode('utf-8')
+        
+        return json.loads(json_str)
+    except Exception as e:
+        return None
+
+# ========== FILE I/O ==========
+def save_file(filepath, data):
+    """Lưu file"""
+    try:
+        encoded = encode_data(data)
+        if encoded:
+            with open(filepath, 'w') as f:
+                f.write(encoded)
+            return True
+    except:
+        pass
     return False
 
-# ==================== ACCOUNTS ====================
-def ld_acc():d=ld(P['acc']);return d if d else {}
-def sv_acc(a):return sv(P['acc'],a)
-def sel_acc():
-    a=ld_acc()
-    if not a:return None,None
-    print(f"\n{C.CY}TÀI KHOẢN ĐÃ LƯU:{C.E}");print(f"{C.CY}{'─'*60}{C.E}")
-    al=list(a.items())
-    for i,(n,d)in enumerate(al,1):print(f"{C.Y}{i}.{C.E} {n} {C.W}({d.get('saved_at','')}){C.E}")
-    print(f"{C.Y}0.{C.E} Đăng nhập mới");print(f"{C.CY}{'─'*60}{C.E}")
-    ch=input(f"{C.Y}Chọn (0-{len(al)}): {C.E}").strip()
-    if ch=='0':return None,None
-    if ch.isdigit():
-        i=int(ch)-1
-        if 0<=i<len(al):n,d=al[i];return d.get('username'),d.get('password')
-    return None,None
-def sv_new_acc(n,u,p):
-    a=ld_acc();a[n]={'username':u,'password':p,'saved_at':datetime.now().strftime("%d/%m/%Y %H:%M")}
-    if sv_acc(a):st(f"Đã lưu: {n}",'ok',C.G)
-
-# ==================== LICENSE ====================
-def ip():
-    try:return requests.get('https://api.ipify.org?format=json',timeout=5).json()['ip']
-    except:return "unknown"
-def sig(lic):return hashlib.sha256(f"{lic.get('mode','')}{lic.get('expire','')}{lic.get('ip','')}".encode()).hexdigest()[:16]
-def ld_lic():
-    d=ld(P['lic'])
-    if not d:return None
-    if d.get('sig')!=sig(d):os.remove(P['lic']);return None
+def load_file(filepath):
+    """Đọc file"""
     try:
-        ed=datetime.strptime(d['expire'],"%d/%m/%Y").date()
-        if ed<datetime.now().date():os.remove(P['lic']);return None
-    except:return None
-    if d.get('mode')=='FREE' and d.get('ip')!=ip():st("IP thay đổi",'warn',C.Y);os.remove(P['lic']);return None
-    if d.get('remain',0)<=0:os.remove(P['lic']);return None
-    return d
-def sv_lic(m,k,days,att):
-    exp=(datetime.now()+timedelta(days=days)).strftime("%d/%m/%Y")
-    ld={'mode':m,'key':k,'expire':exp,'remain':att,'ip':ip(),'created_at':datetime.now().strftime("%d/%m/%Y %H:%M:%S")}
-    ld['sig']=sig(ld);return sv(P['lic'],ld)
-
-def ld_lck():d=ld(P['lck']);return d.get('username')if d else None
-def sv_lck(u):return sv(P['lck'],{'username':u})
-
-# ==================== KEY SYSTEM ====================
-def gen_key():
-    """Generate unique key"""
-    now=datetime.now();did=dev_hash();us=f"{did}{now.timestamp()}{random.randint(1000,9999)}"
-    hv=hashlib.sha256(us.encode()).hexdigest()
-    return f"OLMFREE-{now:%d%m}-{hv[:4].upper()}-{hv[4:8].upper()}"
-
-def shorten(lu):
-    """Shorten link using Link4m API"""
-    try:
-        r=requests.get(f"{LINK_API}?api={LINK_TOKEN}&url={lu}",timeout=10)
-        if r.status_code==200:
-            res=r.json()
-            if res.get('status')=='success'and res.get('shortenedUrl'):return res.get('shortenedUrl')
-    except:pass
+        if os.path.exists(filepath):
+            with open(filepath, 'r') as f:
+                encoded = f.read()
+            return decode_data(encoded)
+    except:
+        pass
     return None
 
-def get_free():
-    """Get FREE key with Link4m"""
-    # Generate key
-    key=gen_key()
+# ========== ANTI-DEBUG ==========
+def check_env():
+    """Kiểm tra môi trường"""
+    if hasattr(sys, 'gettrace') and sys.gettrace():
+        sys.exit(0)
     
-    # Create verification URL (this would be your verification page)
-    verify_url=f"https://verify-key.com/check?key={key}"
+    dangerous_env = ['PYTEST', 'JUPYTER', 'IPYTHON']
+    for env in dangerous_env:
+        if env in os.environ:
+            time.sleep(3)
+            break
+
+# ========== UI ==========
+def clear():
+    """Xóa màn hình"""
+    os.system('cls' if os.name == 'nt' else 'clear')
+    if is_android():
+        print('\033[2J\033[H', end='')
+
+def print_line(char='═', width=None):
+    """In đường kẻ"""
+    if width is None:
+        width = get_terminal_width()
+    print(f"{C.C}{char * width}{C.E}")
+
+def print_header(title="OLM MASTER PRO V1.0"):
+    """In header"""
+    clear()
+    width = get_terminal_width()
+    print_line('═', width)
+    padding = (width - len(title)) // 2
+    print(f"{C.B}{C.BD}{' ' * padding}{title}{C.E}")
+    print_line('═', width)
+    print()
+
+def print_msg(msg, icon='•', color=C.W):
+    """In thông báo"""
+    print(f"{icon} {color}{msg}{C.E}")
+
+# ========== VIP CHECK ==========
+def check_vip_status(username):
+    """Kiểm tra VIP từ GitHub (ngầm)"""
+    try:
+        response = requests.get(GITHUB_VIP, timeout=10)
+        if response.status_code == 200:
+            vip_list = response.text.strip().split('\n')
+            # Lọc comment và khoảng trắng
+            vip_users = [line.strip().lower() for line in vip_list 
+                        if line.strip() and not line.strip().startswith('#')]
+            return username.lower() in vip_users
+    except:
+        pass
+    return False
+
+# ========== KEY GENERATION ==========
+def generate_key():
+    """Tạo key FREE duy nhất"""
+    now = datetime.now()
+    device_id = DEVICE_HASH
+    timestamp = str(time.time()).encode()
+    random_num = str(random.randint(1000, 9999)).encode()
+    unique_string = device_id.encode() + timestamp + random_num
     
-    # Shorten with Link4m
-    short_link=shorten(verify_url)
+    hash_value = hashlib.sha256(unique_string).hexdigest()
     
-    if short_link:
-        clear();hdr("BƯỚC 1: VƯỢT LINK")
-        print(f"{C.G}{'═'*70}{C.E}")
-        print(f"{C.CY}{I['link']} Link rút gọn:{C.E} {C.W}{short_link}{C.E}")
-        print(f"{C.G}{'═'*70}{C.E}\n")
-        print(f"{C.Y}📌 HƯỚNG DẪN:{C.E}")
-        print(f"  1. Mở link trên trong trình duyệt")
-        print(f"  2. Vượt qua xác minh nếu có")
-        print(f"  3. Sau khi vượt, copy KEY được hiển thị")
-        print(f"  4. Dán KEY vào ô bên dưới")
-        print(f"\n{C.R}⚠️  LƯU Ý: Key có hiệu lực 1 ngày (4 lượt){C.E}\n")
+    key = f"OLMFREE-{now:%d%m}-{hash_value[:4].upper()}-{hash_value[4:8].upper()}"
+    return key
+
+def create_short_link(key, service_idx=0):
+    """Tạo link rút gọn"""
+    if service_idx >= len(LINK_SERVICES):
+        return None
+    
+    service = LINK_SERVICES[service_idx]
+    
+    try:
+        # Tạo URL chứa key (giả định - có thể thay đổi)
+        full_url = f"https://olmmaster.vercel.app/?key={key}"
         
-        # Show backup key
-        print(f"{C.PURPLE}🔑 KEY DỰ PHÒNG (nếu link hỏng):{C.E}")
-        print(f"{C.WHITE}{key}{C.E}\n")
+        payload = {
+            'url': full_url,
+            'api_token': service['token']
+        }
         
-        # User enters key
-        user_key=input(f"{C.Y}{I['key']} Nhập KEY bạn nhận được: {C.E}").strip()
-        if user_key==key:
+        response = requests.post(service['api'], json=payload, timeout=10)
+        
+        if response.status_code == 200:
+            data = response.json()
+            if 'shortenedUrl' in data:
+                return data['shortenedUrl']
+            elif 'url' in data:
+                return data['url']
+    except:
+        pass
+    
+    return None
+
+# ========== BYPASS LINK ==========
+def bypass_link_flow():
+    """Flow vượt link để lấy key"""
+    print_header("LẤY KEY MIỄN PHÍ")
+    
+    # Tạo key
+    key = generate_key()
+    
+    # Thử tạo link
+    print_msg("Đang tạo link...", '⏳', C.Y)
+    
+    short_link = None
+    for i in range(len(LINK_SERVICES)):
+        short_link = create_short_link(key, i)
+        if short_link:
+            break
+    
+    if not short_link:
+        print_msg("Không thể tạo link!", '❌', C.R)
+        input(f"\n{C.Y}Nhấn Enter để tiếp tục...{C.E}")
+        return None
+    
+    # Hiển thị link
+    print()
+    print_msg(f"Link: {short_link}", '🔗', C.C)
+    print()
+    print_msg("Vượt link trên để lấy mã", 'ℹ️', C.W)
+    print_msg("Sau khi vượt xong, nhập mã bên dưới", 'ℹ️', C.W)
+    print()
+    
+    # Cho phép đổi link tối đa 3 lần
+    attempts = 0
+    max_attempts = 3
+    
+    while attempts < max_attempts:
+        user_input = input(f"{C.Y}Mã (hoặc 'r' để đổi link): {C.E}").strip()
+        
+        if user_input.lower() == 'r':
+            # Tạo key và link mới
+            key = generate_key()
+            print_msg("Đang tạo link mới...", '⏳', C.Y)
+            
+            short_link = None
+            for i in range(len(LINK_SERVICES)):
+                short_link = create_short_link(key, i)
+                if short_link:
+                    break
+            
+            if short_link:
+                print()
+                print_msg(f"Link mới: {short_link}", '🔗', C.C)
+                print()
+            else:
+                print_msg("Không thể tạo link mới!", '❌', C.R)
+            
+            attempts += 1
+            continue
+        
+        # Kiểm tra key
+        if user_input.upper() == key:
+            print_msg("✓ Mã hợp lệ!", '✓', C.G)
+            time.sleep(0.5)
             return key
         else:
-            st("Key không hợp lệ!",'no',C.R)
-            return None
-    else:
-        # Fallback to direct key
-        clear();hdr("NHẬP KEY TRỰC TIẾP")
-        print(f"{C.CY}🔑 KEY CỦA BẠN:{C.E}")
-        print(f"{C.WHITE}{key}{C.E}")
-        print(f"{C.R}Lưu ý: Key có hiệu lực 1 ngày (4 lượt){C.E}\n")
-        
-        user_key=input(f"{C.Y}{I['key']} Nhập KEY để tiếp tục: {C.E}").strip()
-        if user_key==key:
-            return key
-        else:
-            st("Key không hợp lệ!",'no',C.R)
-            return None
+            remaining = max_attempts - attempts - 1
+            if remaining > 0:
+                print_msg(f"✗ Mã sai (còn {remaining} lần)", '✗', C.R)
+                attempts += 1
+                time.sleep(1)
+            else:
+                print_msg("✗ Hết lượt thử!", '✗', C.R)
+                input(f"\n{C.Y}Nhấn Enter để thoát và thử lại...{C.E}")
+                return None
+    
+    print_msg("Đã hết lượt thử!", '⛔', C.R)
+    input(f"\n{C.Y}Nhấn Enter để tiếp tục...{C.E}")
+    return None
 
-# ==================== LOGIN ====================
-HDR={'user-agent':'Mozilla/5.0','accept':'application/json, text/javascript, */*','accept-language':'vi-VN,vi','x-requested-with':'XMLHttpRequest','origin':'https://olm.vn','referer':'https://olm.vn/'}
-def login(u,p):
-    s=requests.Session();s.headers.update(HDR)
+# ========== LICENSE MANAGEMENT ==========
+def get_current_ip():
+    """Lấy IP hiện tại"""
     try:
-        st("Đang đăng nhập...",'info',C.Y)
-        s.get("https://olm.vn/dangnhap",headers=HDR);csrf=s.cookies.get('XSRF-TOKEN')
-        pl={'_token':csrf,'username':u,'password':p,'remember':'true','device_id':'0b48f4d6204591f83dc40b07f07af7d4','platform':'web'}
-        hl=HDR.copy();hl['x-csrf-token']=csrf
-        s.post("https://olm.vn/post-login",data=pl,headers=hl)
-        cr=s.get("https://olm.vn/thong-tin-tai-khoan/info",headers=HDR)
-        m=re.search(r'name="name".*?value="(.*?)"',cr.text)
-        if m and m.group(1).strip():
-            un=m.group(1).strip();uid=None
-            for cn,cv in s.cookies.get_dict().items():
-                if 'remember_web'in cn and'%7C'in cv:
-                    try:pts=cv.split('%7C');
-                        if pts and pts[0].isdigit():uid=pts[0];break
-                    except:pass
-            if not uid:idm=re.findall(r'\b\d{10,}\b',cr.text);uid=idm[0]if idm else u
-            return s,uid,un
-        return None,None,None
-    except:return None,None,None
+        response = requests.get('https://api.ipify.org?format=json', timeout=5)
+        return response.json()['ip']
+    except:
+        return None
 
-def sv_ses(s,uid,un):
+def compute_signature(license_data):
+    """Tính signature cho license"""
+    sig_str = f"{license_data['mode']}{license_data['expire']}{license_data.get('ip', '')}{license_data.get('remain', 0)}"
+    return hashlib.sha256(sig_str.encode()).hexdigest()[:16]
+
+def save_license(mode, remain=4, username=""):
+    """Lưu license"""
+    expire_date = (datetime.now() + timedelta(days=1)).strftime("%d/%m/%Y")
+    current_ip = get_current_ip() if mode == 'FREE' else ""
+    
+    license_data = {
+        'mode': mode,
+        'remain': remain if mode == 'FREE' else -1,  # -1 = unlimited
+        'expire': expire_date,
+        'ip': current_ip,
+        'username': username
+    }
+    
+    license_data['sig'] = compute_signature(license_data)
+    
+    return save_file(LICENSE_FILE, license_data)
+
+def load_license():
+    """Đọc license"""
+    data = load_file(LICENSE_FILE)
+    
+    if not data:
+        return None
+    
+    # Verify signature
+    expected_sig = compute_signature(data)
+    if data.get('sig') != expected_sig:
+        # File bị sửa
+        try:
+            os.remove(LICENSE_FILE)
+        except:
+            pass
+        return None
+    
+    # Check expire
     try:
-        with open(P['ses'],'wb')as f:pickle.dump({'cookies':dict(s.cookies),'user_id':uid,'user_name':un},f)
+        expire_date = datetime.strptime(data['expire'], "%d/%m/%Y").date()
+        if expire_date < datetime.now().date():
+            return None
+    except:
+        return None
+    
+    # Check IP (FREE only)
+    if data.get('mode') == 'FREE':
+        current_ip = get_current_ip()
+        if current_ip and data.get('ip') != current_ip:
+            return None
+    
+    # Check remain
+    remain = data.get('remain', 0)
+    if data.get('mode') == 'FREE' and remain <= 0:
+        return None
+    
+    return data
+
+def update_license_remain(new_remain):
+    """Cập nhật số lượt còn lại"""
+    data = load_license()
+    if data and data.get('mode') == 'FREE':
+        data['remain'] = new_remain
+        data['sig'] = compute_signature(data)
+        save_file(LICENSE_FILE, data)
+
+# ========== ACCOUNT LOCK ==========
+def save_account_lock(username):
+    """Lưu account lock"""
+    return save_file(LOCK_FILE, {'username': username})
+
+def load_account_lock():
+    """Đọc account lock"""
+    return load_file(LOCK_FILE)
+
+def clear_account_lock():
+    """Xóa account lock"""
+    try:
+        if os.path.exists(LOCK_FILE):
+            os.remove(LOCK_FILE)
         return True
-    except:return False
+    except:
+        return False
 
-# ==================== MAIN ====================
-def main():
-    clear();hdr("OLM MASTER PRO LAUNCHER")
+# ========== ACCOUNTS MANAGEMENT ==========
+def save_accounts(accounts):
+    """Lưu danh sách tài khoản"""
+    return save_file(ACCOUNTS_FILE, accounts)
+
+def load_accounts():
+    """Đọc danh sách tài khoản"""
+    data = load_file(ACCOUNTS_FILE)
+    return data if data else {}
+
+def select_account():
+    """Chọn tài khoản"""
+    accounts = load_accounts()
     
-    # 1. CHỌN TÀI KHOẢN
-    su,sp=sel_acc()
-    if su and sp:u,p=su,sp;st(f"Dùng tài khoản đã lưu: {su}",'ok',C.G)
-    else:print(f"\n{C.CY}ĐĂNG NHẬP MỚI{C.E}");print(f"{C.CY}{'─'*60}{C.E}\n");u=input(f"{I['user']} {C.Y}Tên đăng nhập: {C.E}").strip();p=input(f"{I['key']} {C.Y}Mật khẩu: {C.E}").strip()
-    if not u or not p:st("Thông tin không hợp lệ!",'no',C.R);wait();sys.exit(1)
+    if not accounts:
+        return None, None
     
-    # 2. LOGIN
-    s,uid,un=login(u,p)
-    if not s:st("Đăng nhập thất bại!",'no',C.R);wait();sys.exit(1)
-    clear();st("ĐĂNG NHẬP THÀNH CÔNG!",'ok',C.G+C.BOLD);st(f"Xin chào: {un}",'user',C.CY)
-    if not su or su!=u:
-        sc=input(f"\n{C.Y}Lưu tài khoản này? (y/n): {C.E}").lower()
-        if sc=='y':sv_new_acc(un,u,p)
+    print_header("TÀI KHOẢN ĐÃ LƯU")
     
-    # 3. CHECK VIP
-    st("Kiểm tra quyền truy cập...",'info',C.Y);time.sleep(1)
-    vip=chk_vip(u)
-    el=ld_lic()
+    account_list = list(accounts.items())
+    for idx, (name, data) in enumerate(account_list, 1):
+        saved_time = data.get('saved_at', '')
+        print(f"  {C.Y}{idx}.{C.E} {C.W}{name}{C.E} {C.C}({saved_time}){C.E}")
     
-    # 4. LICENSE HANDLING
-    if vip:
-        clear();print(f"\n{C.M}{'═'*70}{C.E}");print(f"{C.M}{I['crown']} CHÀO MỪNG VIP: {un}{C.E}");print(f"{C.M}{I['gem']} SỬ DỤNG KHÔNG GIỚI HẠN{C.E}");print(f"{C.M}{'═'*70}{C.E}\n")
-        sv_lic('VIP','VIP_'+u,3650,999999)
-    elif el and el.get('remain',0)>0:
-        clear();rm=el['remain'];print(f"\n{C.G}{'═'*70}{C.E}");print(f"{C.G}{I['gem']} Còn {rm} lượt sử dụng{C.E}");print(f"{C.G}{'═'*70}{C.E}\n")
-        la=ld_lck()
-        if la and la!=u:st(f"Key được dùng bởi: {la}",'warn',C.Y);st("Tiếp tục = chuyển tài khoản",'info',C.CY)
-        sv_lck(u)
-    else:
-        clear();print(f"\n{C.CY}{'═'*70}{C.E}");print(f"{C.CY}{I['info']} TÀI KHOẢN FREE (4 lượt/ngày){C.E}");print(f"{C.CY}{'═'*70}{C.E}\n")
-        k=get_free()
-        if not k:st("Không lấy được key!",'no',C.R);wait();sys.exit(1)
-        sv_lic('FREE',k,1,4);sv_lck(u)
-        clear();print(f"\n{C.G}{'═'*70}{C.E}");print(f"{C.G}{I['ok']} KÍCH HOẠT THÀNH CÔNG - 4 LƯỢT SỬ DỤNG{C.E}");print(f"{C.G}{'═'*70}{C.E}\n")
+    print(f"  {C.Y}0.{C.E} {C.W}Đăng nhập mới{C.E}")
+    print()
     
-    # 5. SAVE SESSION
-    if not sv_ses(s,uid,un):st("Lỗi lưu session!",'no',C.R);wait();sys.exit(1)
+    choice = input(f"{C.Y}Chọn (0-{len(account_list)}): {C.E}").strip()
     
-    # 6. DOWNLOAD AND RUN MAIN
-    st("Đang tải main.py từ GitHub...",'info',C.Y)
+    if choice == '0':
+        return None, None
+    
     try:
-        r=requests.get(GITHUB_MAIN,timeout=15)
-        if r.status_code==200:
-            td=tempfile.gettempdir();mp=os.path.join(td,f'olm_{dev_hash()}.py')
-            with open(mp,'wb')as f:f.write(r.content)
-            clear();print(f"\n{C.G}{'═'*70}{C.E}");print(f"{C.G}{I['rocket']} KHỞI ĐỘNG OLM MASTER PRO...{C.E}");print(f"{C.G}{'═'*70}{C.E}\n");time.sleep(1)
-            subprocess.run([sys.executable,mp])
-            try:os.remove(mp)
-            except:pass
-        else:st("Lỗi tải main.py!",'no',C.R);wait();sys.exit(1)
-    except Exception as e:st(f"Lỗi tải: {e}",'no',C.R);wait();sys.exit(1)
+        idx = int(choice) - 1
+        if 0 <= idx < len(account_list):
+            name, data = account_list[idx]
+            return data.get('username'), data.get('password')
+    except:
+        pass
+    
+    return None, None
 
-if __name__=="__main__":
-    try:main()
-    except KeyboardInterrupt:print(f"\n{I['warn']} {C.Y}Đã dừng chương trình{C.E}");sys.exit(0)
-    except Exception as e:st(f"Lỗi không xác định: {e}",'no',C.R);wait();sys.exit(1)
+def save_new_account(name, username, password):
+    """Lưu tài khoản mới"""
+    accounts = load_accounts()
+    accounts[name] = {
+        'username': username,
+        'password': password,
+        'saved_at': datetime.now().strftime("%d/%m/%Y %H:%M")
+    }
+    return save_accounts(accounts)
+
+# ========== OLM LOGIN ==========
+HEADERS = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+    'accept': 'application/json, text/javascript, */*; q=0.01',
+    'accept-language': 'vi-VN,vi;q=0.9',
+    'x-requested-with': 'XMLHttpRequest',
+    'origin': 'https://olm.vn',
+    'referer': 'https://olm.vn/'
+}
+
+def login_olm(username, password):
+    """Đăng nhập OLM"""
+    session = requests.Session()
+    session.headers.update(HEADERS)
+    
+    try:
+        print_msg("Đang đăng nhập...", '⏳', C.Y)
+        
+        # Lấy CSRF
+        session.get("https://olm.vn/dangnhap", headers=HEADERS, timeout=10)
+        csrf = session.cookies.get('XSRF-TOKEN')
+        
+        # Payload
+        payload = {
+            '_token': csrf,
+            'username': username,
+            'password': password,
+            'remember': 'true',
+            'device_id': DEVICE_HASH,
+            'platform': 'web'
+        }
+        
+        h_login = HEADERS.copy()
+        h_login['x-csrf-token'] = csrf
+        
+        # Login
+        session.post("https://olm.vn/post-login", data=payload, headers=h_login, timeout=10)
+        
+        # Check
+        check_res = session.get("https://olm.vn/thong-tin-tai-khoan/info", headers=HEADERS, timeout=10)
+        match = re.search(r'name="name".*?value="(.*?)"', check_res.text)
+        
+        if match and match.group(1).strip():
+            user_name = match.group(1).strip()
+            
+            # Lấy user_id
+            user_id = None
+            cookies = session.cookies.get_dict()
+            for cookie_name, cookie_value in cookies.items():
+                if 'remember_web' in cookie_name and '%7C' in cookie_value:
+                    try:
+                        parts = cookie_value.split('%7C')
+                        if parts and parts[0].isdigit():
+                            user_id = parts[0]
+                            break
+                    except:
+                        pass
+            
+            if not user_id:
+                id_matches = re.findall(r'\b\d{10,}\b', check_res.text)
+                user_id = id_matches[0] if id_matches else username
+            
+            return session, user_id, user_name
+        
+        return None, None, None
+        
+    except Exception as e:
+        return None, None, None
+
+# ========== SESSION MANAGEMENT ==========
+def save_session(session, user_id, user_name):
+    """Lưu session"""
+    session_data = {
+        'cookies': session.cookies.get_dict(),
+        'user_id': user_id,
+        'user_name': user_name
+    }
+    return save_file(SESSION_FILE, session_data)
+
+# ========== DOWNLOAD & RUN MAIN ==========
+def download_main():
+    """Download main.py từ GitHub"""
+    try:
+        print_msg("Đang tải main.py...", '⏳', C.Y)
+        response = requests.get(GITHUB_MAIN, timeout=15)
+        
+        if response.status_code == 200:
+            return response.text
+        return None
+    except:
+        return None
+
+def run_main(session, user_id, user_name):
+    """Chạy main.py"""
+    # Download main.py
+    main_code = download_main()
+    
+    if not main_code:
+        print_msg("Không thể tải main.py!", '❌', C.R)
+        input(f"\n{C.Y}Nhấn Enter để tiếp tục...{C.E}")
+        return
+    
+    # Lưu session
+    save_session(session, user_id, user_name)
+    
+    # Chạy trong temp
+    try:
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.py', delete=False, encoding='utf-8') as f:
+            f.write(main_code)
+            temp_file = f.name
+        
+        # Chạy
+        subprocess.run([sys.executable, temp_file], check=False)
+        
+        # Xóa temp file
+        try:
+            os.remove(temp_file)
+        except:
+            pass
+            
+    except Exception as e:
+        print_msg(f"Lỗi chạy main.py: {str(e)}", '❌', C.R)
+        input(f"\n{C.Y}Nhấn Enter để tiếp tục...{C.E}")
+
+# ========== MAIN LAUNCHER ==========
+def main():
+    """Main launcher"""
+    check_env()
+    
+    print_header()
+    print_msg("Khởi động OLM Master Pro...", '🚀', C.G)
+    time.sleep(1)
+    
+    # Bước 1: Chọn/đăng nhập tài khoản
+    print_header("ĐĂNG NHẬP")
+    
+    saved_username, saved_password = select_account()
+    
+    if saved_username and saved_password:
+        use_saved = input(f"\n{C.Y}Dùng tài khoản đã lưu? (y/n): {C.E}").strip().lower()
+        if use_saved == 'y':
+            username = saved_username
+            password = saved_password
+        else:
+            username = input(f"\n👤 {C.Y}Tên đăng nhập: {C.E}").strip()
+            password = input(f"🔑 {C.Y}Mật khẩu: {C.E}").strip()
+    else:
+        username = input(f"\n👤 {C.Y}Tên đăng nhập: {C.E}").strip()
+        password = input(f"🔑 {C.Y}Mật khẩu: {C.E}").strip()
+    
+    if not username or not password:
+        print_msg("Tên đăng nhập/mật khẩu trống!", '❌', C.R)
+        input(f"\n{C.Y}Nhấn Enter để thoát...{C.E}")
+        return
+    
+    # Bước 2: Đăng nhập
+    session, user_id, user_name = login_olm(username, password)
+    
+    if not session:
+        print_msg("Đăng nhập thất bại!", '❌', C.R)
+        print_msg("Sai tên đăng nhập hoặc mật khẩu", 'ℹ️', C.W)
+        input(f"\n{C.Y}Nhấn Enter để thoát...{C.E}")
+        return
+    
+    print_msg(f"✓ Đăng nhập thành công!", '✓', C.G)
+    print_msg(f"Xin chào: {user_name}", '👤', C.C)
+    time.sleep(1)
+    
+    # Hỏi lưu tài khoản
+    if not saved_username or saved_username != username:
+        save_choice = input(f"\n{C.Y}Lưu tài khoản? (y/n): {C.E}").strip().lower()
+        if save_choice == 'y':
+            save_new_account(user_name, username, password)
+            print_msg("✓ Đã lưu tài khoản", '✓', C.G)
+            time.sleep(0.5)
+    
+    # Bước 3: Check VIP (ngầm)
+    print()
+    print_msg("Đang kiểm tra quyền truy cập...", '⏳', C.Y)
+    
+    is_vip = check_vip_status(username)
+    
+    if is_vip:
+        # VIP - không cần vượt link
+        print_msg("✓ Tài khoản VIP", '⭐', C.G)
+        print_msg("• Không giới hạn lượt làm bài", 'ℹ️', C.C)
+        save_license('VIP', username=username)
+        time.sleep(1)
+    else:
+        # FREE - kiểm tra license
+        print_msg("Tài khoản FREE", 'ℹ️', C.Y)
+        
+        license_data = load_license()
+        
+        if license_data and license_data.get('remain', 0) > 0:
+            # Có license còn hiệu lực
+            remain = license_data.get('remain', 0)
+            print_msg(f"✓ Còn {remain} lượt làm bài", '💎', C.G)
+            time.sleep(1)
+        else:
+            # Cần lấy key mới
+            print_msg("• 4 lượt/ngày", 'ℹ️', C.C)
+            print_msg("• Cần vượt link để lấy key", 'ℹ️', C.C)
+            time.sleep(1)
+            
+            key = bypass_link_flow()
+            
+            if not key:
+                print_msg("Không có key, thoát!", '❌', C.R)
+                input(f"\n{C.Y}Nhấn Enter để thoát...{C.E}")
+                return
+            
+            # Lưu license FREE
+            save_license('FREE', remain=4, username=username)
+            print_msg("✓ Đã kích hoạt key FREE", '✓', C.G)
+            print_msg("• Còn 4 lượt làm bài", '💎', C.G)
+            time.sleep(1)
+    
+    # Bước 4: Lưu account lock
+    save_account_lock(username)
+    
+    # Bước 5: Chạy main.py
+    print()
+    print_msg("Đang khởi động tool...", '🚀', C.G)
+    time.sleep(1)
+    
+    run_main(session, user_id, user_name)
+    
+    # Kết thúc
+    print()
+    print_msg("Đã thoát tool!", '👋', C.C)
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print(f"\n\n{C.Y}Đã dừng chương trình{C.E}")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n{C.R}Lỗi: {str(e)}{C.E}")
+        input(f"\n{C.Y}Nhấn Enter để thoát...{C.E}")
