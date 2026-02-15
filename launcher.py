@@ -389,26 +389,40 @@ def clear_lock():
     if os.path.exists(LOCK):
         os.remove(LOCK)
 
+# ========== HÀM TẠO LINK ==========
+def create_short_link(url):
+    """Tạo link rút gọn với link4m"""
+    try:
+        encoded = requests.utils.quote(url)
+        api_url = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={encoded}"
+        response = requests.get(api_url, timeout=10)
+        data = response.json()
+
+        if data.get("status") == "success":
+            return data.get("shortenedUrl")
+
+    except:
+        pass
+
+    return url
+
 # ========== GET KEY ==========
 def get_key():
     """Lấy key từ link4m"""
     while True:
         k = gen_key()
         
-        try:
-            url = f"{URL_BLOG}?ma={k}"
-            api = f"https://link4m.co/api-shorten/v2?api={API_TOKEN}&url={requests.utils.quote(url)}"
-            r = requests.get(api, timeout=8)
-            link = r.json().get('shortenedUrl') if r.json().get('status') == 'success' else None
-        except:
-            link = None
+        # Tạo link
+        url = f"{URL_BLOG}?ma={k}"
+        short_url = create_short_link(url)
         
-        if not link:
-            print_status("Lỗi tạo link", 'error', C.R)
+        if short_url == url:
+            print_status("Lỗi tạo link rút gọn", 'error', C.R)
             time.sleep(2)
             continue
         
-        print_box("VƯỚT LINK ĐỂ LẤY KEY", [f"Link: {link}"], C.Y)
+        # Hiển thị link
+        print_box("VƯỚT LINK ĐỂ LẤY KEY", [f"Link: {short_url}"], C.Y)
         
         for i in range(3):
             inp = input(f"{C.Y}🔑 Mã (r=link mới): {C.E}").strip()
@@ -442,20 +456,31 @@ def run_tool(session, user_id, user_name):
         with open(SESS, 'wb') as f:
             pickle.dump({'cookies': session.cookies.get_dict(), 'user_id': user_id, 'user_name': user_name}, f)
         
+        # Tạo file tạm để chạy main.py
         with tempfile.NamedTemporaryFile(delete=False, suffix=".py", mode='w', encoding='utf-8') as f:
             f.write(r.text)
             temp = f.name
         
-        env = os.environ.copy()
-        env['OLM_LICENSE_FILE'] = LIC
-        env['OLM_SESSION_FILE'] = SESS
-        env['OLM_LOCK_FILE'] = LOCK
+        # Lưu license để main.py đọc được
+        try:
+            lic_data = load_lic()
+            if lic_data:
+                lic_file = os.path.join(tempfile.gettempdir(), "license_olm.pkl")
+                with open(lic_file, 'wb') as f:
+                    pickle.dump(lic_data, f)
+        except:
+            pass
         
-        subprocess.run([sys.executable, temp], env=env)
+        # Chạy main.py
+        subprocess.run([sys.executable, temp])
         
+        # Xóa file tạm
         try:
             os.remove(temp)
             os.remove(SESS)
+            lic_file = os.path.join(tempfile.gettempdir(), "license_olm.pkl")
+            if os.path.exists(lic_file):
+                os.remove(lic_file)
         except:
             pass
             
