@@ -14,7 +14,6 @@ import json
 import random
 import requests
 import re
-import subprocess
 import socket
 import uuid
 import hashlib
@@ -279,7 +278,8 @@ def get_public_ip():
 def handle_key_generation():
     """Xử lý tạo key cho tài khoản FREE"""
     key = generate_olm_key()
-    real_url = f"https://olm.vn/key?code={key}"
+    # Đổi URL đích theo yêu cầu
+    real_url = f"https://keyfreedailyolmvip.blogspot.com/2026/02/blog-post.html?ma={key}"
     
     print(f"\n{Colors.YELLOW}Đang tạo liên kết bảo mật...{Colors.END}")
     
@@ -307,35 +307,6 @@ def handle_key_generation():
         'expire': datetime.now().strftime("%Y-%m-%d"),
         'ip': get_public_ip()
     }
-
-# ========== KIỂM TRA VÀ CẬP NHẬT THƯ VIỆN ==========
-def check_and_update_packages():
-    """Kiểm tra và cập nhật gói tin"""
-    print_header("KIỂM TRA CẬP NHẬT THƯ VIỆN")
-    
-    required_packages = ['requests', 'beautifulsoup4']
-    
-    for package in required_packages:
-        try:
-            # Sửa đổi: beautifulsoup4 cần import là bs4, nhưng cài đặt qua pip là beautifulsoup4
-            if package == 'beautifulsoup4':
-                __import__('bs4')
-            else:
-                __import__(package)
-            print_status(f"Đã cài đặt: {package}", 'check', Colors.GREEN)
-        except ImportError:
-            print_status(f"Thiếu: {package} - Đang cài đặt...", 'warning', Colors.YELLOW)
-            try:
-                subprocess.check_call([sys.executable, "-m", "pip", "install", package, "--quiet"])
-                print_status(f"Đã cài đặt thành công: {package}", 'success', Colors.GREEN)
-            except:
-                print_status(f"Không thể cài đặt {package}", 'error', Colors.RED)
-                wait_enter()
-                return False
-    
-    print_status("Tất cả thư viện đã sẵn sàng!", 'success', Colors.GREEN)
-    time.sleep(1)
-    return True
 
 # ========== QUẢN LÝ TÀI KHOẢN ==========
 def load_saved_accounts():
@@ -1414,7 +1385,7 @@ def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
             print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
             print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
             wait_enter()
-            return success_count > 0
+            return success_count > 0, remaining_uses
             
         elif selection.isdigit():
             idx = int(selection) - 1
@@ -1422,7 +1393,7 @@ def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
                 # Giải bài cụ thể
                 if not is_vip and remaining_uses <= 0:
                     print_status("Hết lượt sử dụng! Vui lòng lấy key mới.", 'error', Colors.RED)
-                    return False
+                    return False, remaining_uses
                     
                 success = submit_assignment(session, assignments[idx], user_id)
                 if success and not is_vip:
@@ -1434,9 +1405,10 @@ def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
                         'ip': license_data['ip']
                     })
                     print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
-                return success
+                return success, remaining_uses
             else:
                 print_status("Số bài không hợp lệ", 'error', Colors.RED)
+                return False, remaining_uses
         else:
             # Giải nhiều bài
             indices = []
@@ -1482,20 +1454,19 @@ def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
                 print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
                 print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
                 wait_enter()
-                return success_count > 0
+                return success_count > 0, remaining_uses
             else:
                 print_status("Lựa chọn không hợp lệ", 'error', Colors.RED)
+                return False, remaining_uses
     
-    except:
-        print_status("Lỗi chọn bài", 'error', Colors.RED)
-    
-    wait_enter()
-    return False
+    except Exception as e:
+        print_status(f"Lỗi chọn bài: {str(e)}", 'error', Colors.RED)
+        return False, remaining_uses
 
 def process_all_assignments(session, assignments, user_id, is_vip, remaining_uses):
     """Xử lý tất cả bài tập"""
     if not assignments:
-        return 0, 0
+        return 0, 0, remaining_uses
     
     print_header("BẮT ĐẦU XỬ LÝ")
     
@@ -1535,7 +1506,7 @@ def process_all_assignments(session, assignments, user_id, is_vip, remaining_use
     print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
     
     wait_enter()
-    return success_count, total_count
+    return success_count, total_count, remaining_uses
 
 # ========== MENU CHÍNH ==========
 def main_menu(session, user_id, user_name, is_vip, remaining_uses):
@@ -1571,9 +1542,9 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
                 
                 selection = input(f"\n{Colors.YELLOW}Chọn bài (0 cho tất cả, hoặc 1,2,3...): {Colors.END}").strip()
                 if selection == '0':
-                    process_all_assignments(session, assignments, user_id, is_vip, remaining_uses)
+                    success, total, remaining_uses = process_all_assignments(session, assignments, user_id, is_vip, remaining_uses)
                 else:
-                    solve_specific_from_list(session, user_id, is_vip, remaining_uses)
+                    success, remaining_uses = solve_specific_from_list(session, user_id, is_vip, remaining_uses)
         
         elif choice == '2':
             solve_from_link(session, user_id)
@@ -1581,7 +1552,7 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
         elif choice == '3':
             print_status("Đang đăng xuất...", 'refresh', Colors.YELLOW)
             time.sleep(1)
-            return False
+            return False, remaining_uses
         
         elif choice == '4':
             print_status("Cảm ơn đã sử dụng!", 'exit', Colors.GREEN)
@@ -1592,16 +1563,11 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
             print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
             time.sleep(1)
     
-    return True
+    return True, remaining_uses
 
 # ========== CHƯƠNG TRÌNH CHÍNH ==========
 def main():
     """Chương trình chính"""
-    # Kiểm tra và cập nhật thư viện
-    if not check_and_update_packages():
-        print_status("Không thể khởi động tool!", 'error', Colors.RED)
-        wait_enter()
-        return
     
     while True:
         # Đăng nhập
@@ -1628,7 +1594,8 @@ def main():
                     
                     remaining_uses = license_data['remain']
                     print(f"{Colors.YELLOW}Tài khoản FREE - Còn {remaining_uses} lượt{Colors.END}")
-                    main_menu(session, user_id, user_name, False, remaining_uses)
+                    # Gọi main_menu và cập nhật remaining_uses
+                    _, remaining_uses = main_menu(session, user_id, user_name, False, remaining_uses)
                 else:
                     # Tạo key mới
                     print(f"{Colors.YELLOW}Tài khoản FREE - Vui lòng lấy key mới{Colors.END}")
@@ -1636,7 +1603,7 @@ def main():
                     if new_license:
                         save_license(new_license)
                         print(f"{Colors.GREEN}Đăng ký thành công! Còn {new_license['remain']} lượt{Colors.END}")
-                        main_menu(session, user_id, user_name, False, new_license['remain'])
+                        _, remaining_uses = main_menu(session, user_id, user_name, False, new_license['remain'])
                     else:
                         print_status("Không thể đăng ký key", 'error', Colors.RED)
         else:
