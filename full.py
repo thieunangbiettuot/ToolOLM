@@ -33,6 +33,7 @@ class Colors:
     BOLD = '\033[1m'
     UNDERLINE = '\033[4m'
     END = '\033[0m'
+    GRAY = '\033[90m'
 
 # Ký tự icon
 ICONS = {
@@ -741,34 +742,11 @@ def display_assignments_table(assignments):
 def get_target_score(is_video=False, is_kiem_tra=False):
     """Menu chọn điểm số"""
     if is_video:
-        print_status("Video: Tự động chọn 100 điểm", 'video', Colors.BLUE)
         return 100
     elif is_kiem_tra:
-        print_status("Kiểm tra: Tự động chọn điểm cao", 'warning', Colors.YELLOW)
         return random.randint(85, 100)  # Điểm kiểm tra thường cao
     
-    print(f"\n{Colors.CYAN}{ICONS['star']} CHỌN ĐIỂM SỐ{Colors.END}")
-    print_line('─', Colors.CYAN, 40)
-    print(f"  {Colors.YELLOW}1.{Colors.END} {ICONS['star']} 100 điểm (Xuất sắc)")
-    print(f"  {Colors.YELLOW}2.{Colors.END} {ICONS['question']} Tùy chọn điểm số")
-    print_line('─', Colors.CYAN, 40)
-    
-    while True:
-        choice = input(f"{Colors.YELLOW}Chọn (1-2): {Colors.END}").strip()
-        
-        if choice == '1':
-            return 100
-        elif choice == '2':
-            try:
-                score = int(input(f"{Colors.YELLOW}Nhập điểm số (0-100): {Colors.END}").strip())
-                if 0 <= score <= 100:
-                    return score
-                else:
-                    print_status("Điểm số phải từ 0 đến 100!", 'error', Colors.RED)
-            except ValueError:
-                print_status("Vui lòng nhập số hợp lệ!", 'error', Colors.RED)
-        else:
-            print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
+    return 100
 
 def extract_quiz_info(session, url, is_video=False):
     """Trích xuất thông tin quiz"""
@@ -818,22 +796,17 @@ def extract_quiz_info(session, url, is_video=False):
         
         if not quiz_list:
             if is_video:
-                print_status("Video: Không có quiz_list, sẽ thử phương pháp khác", 'video', Colors.BLUE)
                 return "", 0, id_courseware, id_cate
             else:
-                print_status("Không tìm thấy danh sách câu hỏi", 'error', Colors.RED)
                 return None, 0, id_courseware, id_cate
         
         # Tách danh sách câu hỏi
         question_ids = [qid.strip() for qid in quiz_list.split(',') if qid.strip()]
         total_questions = len(question_ids)
         
-        print_status(f"Tìm thấy {total_questions} câu hỏi", 'info', Colors.WHITE)
-        
         return quiz_list, total_questions, id_courseware, id_cate
         
     except Exception as e:
-        print_status(f"Lỗi trích xuất thông tin: {str(e)}", 'error', Colors.RED)
         return None, 0, None, None
 
 def create_data_log_for_normal(total_questions, target_score):
@@ -877,22 +850,6 @@ def create_data_log_for_normal(total_questions, target_score):
 
 def submit_assignment(session, assignment, user_id):
     """Nộp bài tập"""
-    print(f"\n{Colors.CYAN}{ICONS['upload']} ĐANG XỬ LÝ:{Colors.END}")
-    print(f"{Colors.WHITE}📖 {assignment['title']}{Colors.END}")
-    
-    if assignment['is_video']:
-        print(f"{Colors.BLUE}🎬 Loại: Video{Colors.END}")
-        target_score = 100
-    elif assignment['is_ly_thuyet']:
-        print(f"{Colors.CYAN}📚 Loại: Lý thuyết{Colors.END}")
-        target_score = get_target_score(False, False)
-    elif assignment['is_kiem_tra']:
-        print(f"{Colors.YELLOW}⚠️ Loại: Kiểm tra{Colors.END}")
-        target_score = get_target_score(False, True)
-    else:
-        print(f"{Colors.GREEN}📝 Loại: Bài tập{Colors.END}")
-        target_score = get_target_score(False, False)
-    
     try:
         # TRÍCH XUẤT THÔNG TIN
         quiz_list, total_questions, id_courseware, id_cate = extract_quiz_info(
@@ -901,20 +858,14 @@ def submit_assignment(session, assignment, user_id):
         
         # XỬ LÝ VIDEO
         if assignment['is_video']:
-            print_status("Đang xử lý video...", 'video', Colors.BLUE)
             success = handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
-            if success:
-                print_status(f"{ICONS['success']} HOÀN THÀNH BÀI ({assignment['title']})", 'success', Colors.GREEN + Colors.BOLD)
-                wait_enter()
             return success
         
         # BÀI TẬP THƯỜNG & LÝ THUYẾT & KIỂM TRA
         if not quiz_list or total_questions == 0:
-            print_status("Không thể lấy thông tin bài", 'error', Colors.RED)
             return False
         
-        print_status(f"Đang tạo dữ liệu cho {total_questions} câu...", 'clock', Colors.YELLOW)
-        data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, target_score)
+        data_log, total_time, correct_needed = create_data_log_for_normal(total_questions, 100)
         
         # LẤY CSRF TOKEN
         csrf_token = session.cookies.get('XSRF-TOKEN')
@@ -944,7 +895,7 @@ def submit_assignment(session, assignment, user_id):
             'type_vip': '0',
             'time_spent': str(total_time),
             'data_log': json.dumps(data_log, separators=(',', ':')),
-            'score': str(target_score),
+            'score': '100',
             'answered': str(total_questions),
             'correct': str(correct_needed),
             'count_problems': str(total_questions),
@@ -964,8 +915,6 @@ def submit_assignment(session, assignment, user_id):
         }
         
         # GỬI REQUEST
-        print_status("Đang nộp bài...", 'upload', Colors.YELLOW)
-        
         submit_headers = HEADERS.copy()
         submit_headers['x-csrf-token'] = csrf_token
         
@@ -976,19 +925,9 @@ def submit_assignment(session, assignment, user_id):
             timeout=15
         )
         
-        print_status(f"Phản hồi: HTTP {response.status_code}", 'info', Colors.WHITE)
-        
-        # XỬ LÝ KẾT QUẢ
-        success = handle_submission_response(response, target_score)
-        
-        if success:
-            print_status(f"{ICONS['success']} HOÀN THÀNH BÀI ({assignment['title']})", 'success', Colors.GREEN + Colors.BOLD)
-            wait_enter()
-        
-        return success
+        return response.status_code == 200
             
     except Exception as e:
-        print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
         return False
 
 def handle_video_submission(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
@@ -996,19 +935,17 @@ def handle_video_submission(session, assignment, user_id, quiz_list, total_quest
     
     # THỬ NHIỀU PHƯƠNG PHÁP
     methods = [
-        try_video_simple_method,  # Phương pháp đơn giản
-        try_video_with_quiz,      # Với quiz_list
-        try_video_complex_method, # Phương pháp phức tạp
+        try_video_simple_method,
+        try_video_with_quiz,
+        try_video_complex_method,
     ]
     
     for i, method in enumerate(methods, 1):
-        print_status(f"Thử phương pháp {i} cho video...", 'video', Colors.BLUE)
         success = method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate)
         if success:
             return True
-        time.sleep(1)  # Chờ giữa các phương pháp
+        time.sleep(0.5)
     
-    print_status("Tất cả phương pháp đều thất bại", 'error', Colors.RED)
     return False
 
 def try_video_simple_method(session, assignment, user_id, quiz_list, total_questions, id_courseware, id_cate):
@@ -1021,7 +958,7 @@ def try_video_simple_method(session, assignment, user_id, quiz_list, total_quest
             csrf_token = csrf_match.group(1) if csrf_match else ""
         
         current_time = int(time.time())
-        time_spent = random.randint(300, 900)  # 5-15 phút
+        time_spent = random.randint(300, 900)
         
         # Tạo data_log đơn giản
         data_log = [{
@@ -1035,7 +972,7 @@ def try_video_simple_method(session, assignment, user_id, quiz_list, total_quest
             "marker": 1
         }]
         
-        # Tạo payload linh hoạt
+        # Tạo payload
         payload = {
             '_token': csrf_token,
             'id_user': user_id,
@@ -1050,28 +987,6 @@ def try_video_simple_method(session, assignment, user_id, quiz_list, total_quest
             'cv_q': '1'
         }
         
-        # Thêm các trường tùy chọn
-        optional_fields = {
-            'id_group': '6148789559',
-            'id_school': '0',
-            'name_user': '',
-            'type_vip': '530',
-            'total_time': str(time_spent),
-            'current_time': '3',
-            'correct': '1',
-            'totalq': '0',
-            'count_problems': '1',
-            'save_star': '1'
-        }
-        
-        # Chỉ thêm các trường nếu có giá trị
-        for key, value in optional_fields.items():
-            payload[key] = value
-        
-        # Thêm quiz_list nếu có
-        if quiz_list:
-            payload['quiz_list'] = quiz_list
-        
         submit_headers = HEADERS.copy()
         submit_headers['x-csrf-token'] = csrf_token
         
@@ -1082,7 +997,7 @@ def try_video_simple_method(session, assignment, user_id, quiz_list, total_quest
             timeout=10
         )
         
-        return handle_submission_response(response, 100)
+        return response.status_code == 200
         
     except Exception as e:
         return False
@@ -1104,7 +1019,7 @@ def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions
         
         # Tạo data_log với số câu hỏi thực tế
         data_log = []
-        for i in range(min(total_questions, 5)):  # Giới hạn 5 câu
+        for i in range(min(total_questions, 5)):
             data_log.append({
                 "answer": '["0"]',
                 "params": '{"js":""}',
@@ -1143,7 +1058,7 @@ def try_video_with_quiz(session, assignment, user_id, quiz_list, total_questions
             timeout=10
         )
         
-        return handle_submission_response(response, 100)
+        return response.status_code == 200
         
     except Exception as e:
         return False
@@ -1175,7 +1090,7 @@ def try_video_complex_method(session, assignment, user_id, quiz_list, total_ques
             "marker": 1
         })
         
-        # Thêm câu hỏi trắc nghiệm nếu có quiz_list
+        # Thêm câu hỏi trắc nghiệm
         if quiz_list and total_questions > 0:
             order = [0, 1, 2, 3]
             random.shuffle(order)
@@ -1216,7 +1131,6 @@ def try_video_complex_method(session, assignment, user_id, quiz_list, total_ques
             'cv_q': '1'
         }
         
-        # Thêm quiz_list nếu có
         if quiz_list:
             payload['quiz_list'] = quiz_list
         
@@ -1230,46 +1144,13 @@ def try_video_complex_method(session, assignment, user_id, quiz_list, total_ques
             timeout=10
         )
         
-        return handle_submission_response(response, 100)
+        return response.status_code == 200
         
     except Exception as e:
         return False
 
-def handle_submission_response(response, target_score):
-    """Xử lý phản hồi"""
-    if response.status_code == 200:
-        try:
-            result = response.json()
-            
-            if 'code' in result:
-                if result['code'] == 403:
-                    print_status(f"Đã nộp trước: {result.get('message', '')}", 'warning', Colors.YELLOW)
-                    return True
-                elif result['code'] == 400:
-                    print_status(f"Lỗi 400: {result.get('message', '')}", 'error', Colors.RED)
-                    return False
-                else:
-                    actual_score = result.get('score', target_score)
-                    print_status(f"Thành công! Điểm: {actual_score}/100", 'success', Colors.GREEN)
-                    return True
-            else:
-                print_status("Nộp thành công (status 200)", 'success', Colors.GREEN)
-                return True
-        except Exception as e:
-            if "success" in response.text.lower() or "hoàn thành" in response.text.lower():
-                print_status("Có vẻ đã thành công", 'success', Colors.GREEN)
-                return True
-            print_status("Nộp thành công (status 200)", 'success', Colors.GREEN)
-            return True
-    elif response.status_code == 403:
-        print_status("Bài đã được nộp trước đó", 'warning', Colors.YELLOW)
-        return True
-    else:
-        print_status(f"Lỗi {response.status_code}", 'error', Colors.RED)
-        return False
-
 # ========== GIẢI BÀI TỪ LINK ==========
-def solve_from_link(session, user_id):
+def solve_from_link(session, user_id, is_vip, remaining_uses):
     """Giải bài từ link"""
     print_header("GIẢI BÀI TỪ LINK")
     
@@ -1282,7 +1163,7 @@ def solve_from_link(session, user_id):
     if not url.startswith('https://olm.vn/'):
         print_status("Link không hợp lệ! Phải là link OLM", 'error', Colors.RED)
         wait_enter()
-        return False
+        return False, remaining_uses
     
     try:
         # Kiểm tra loại bài
@@ -1319,14 +1200,30 @@ def solve_from_link(session, user_id):
         
         if confirm == 'y':
             success = submit_assignment(session, assignment, user_id)
-            return success
+            if success:
+                print_status("Thành công!", 'success', Colors.GREEN)
+                wait_enter()
+                if not is_vip:
+                    remaining_uses -= 1
+                    save_license({
+                        'key': license_data['key'],
+                        'remain': remaining_uses,
+                        'expire': license_data['expire'],
+                        'ip': license_data['ip']
+                    })
+                    print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
+                return True, remaining_uses
+            else:
+                print_status("Thất bại!", 'error', Colors.RED)
+                wait_enter()
+                return False, remaining_uses
         else:
             print_status("Đã hủy", 'warning', Colors.YELLOW)
-            return False
+            return False, remaining_uses
             
     except Exception as e:
         print_status(f"Lỗi: {str(e)}", 'error', Colors.RED)
-        return False
+        return False, remaining_uses
 
 # ========== GIẢI BÀI CỤ THỂ TỪ DANH SÁCH ==========
 def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
@@ -1342,61 +1239,48 @@ def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
     assignments = get_assignments_fixed(session, pages_to_scan)
     if not assignments:
         wait_enter()
-        return False
+        return False, remaining_uses
     
     display_assignments_table(assignments)
     
     # Chọn bài để giải
     try:
         selection = input(f"\n{Colors.YELLOW}Chọn số bài để giải (1-{len(assignments)}): {Colors.END}").strip()
+        
+        # Xử lý trường hợp "0" (giải tất cả)
         if selection == '0':
-            # Giải tất cả bài
-            success_count = 0
-            total_count = len(assignments)
+            indices = list(range(len(assignments)))
+        else:
+            indices = []
+            for part in selection.split(','):
+                if part.strip().isdigit():
+                    idx = int(part.strip()) - 1
+                    if 0 <= idx < len(assignments):
+                        indices.append(idx)
             
-            for idx, assignment in enumerate(assignments, 1):
-                print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
-                
-                if not is_vip and remaining_uses <= 0:
-                    print_status("Hết lượt sử dụng! Vui lòng lấy key mới.", 'error', Colors.RED)
-                    break
-                    
-                success = submit_assignment(session, assignment, user_id)
-                
-                if success:
-                    success_count += 1
-                    if not is_vip:
-                        remaining_uses -= 1
-                        save_license({
-                            'key': license_data['key'],
-                            'remain': remaining_uses,
-                            'expire': license_data['expire'],
-                            'ip': license_data['ip']
-                        })
-                        print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
-                else:
-                    print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
-                
-                if idx < total_count:
-                    wait_time = random.randint(2, 5)
-                    print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
-                    time.sleep(wait_time)
+            if not indices:
+                print_status("Lựa chọn không hợp lệ", 'error', Colors.RED)
+                wait_enter()
+                return False, remaining_uses
+        
+        # Lấy điểm số 1 lần cho tất cả bài
+        all_success = True
+        
+        for idx, assignment_idx in enumerate(indices, 1):
+            print(f"\n{Colors.YELLOW}📊 Bài {idx}/{len(indices)}{Colors.END}")
+            assignment = assignments[assignment_idx]
             
-            print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
-            print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
-            wait_enter()
-            return success_count > 0, remaining_uses
+            # Kiểm tra lượt sử dụng
+            if not is_vip and remaining_uses <= 0:
+                print_status("Hết lượt sử dụng! Vui lòng lấy key mới.", 'error', Colors.RED)
+                all_success = False
+                break
             
-        elif selection.isdigit():
-            idx = int(selection) - 1
-            if 0 <= idx < len(assignments):
-                # Giải bài cụ thể
-                if not is_vip and remaining_uses <= 0:
-                    print_status("Hết lượt sử dụng! Vui lòng lấy key mới.", 'error', Colors.RED)
-                    return False, remaining_uses
-                    
-                success = submit_assignment(session, assignments[idx], user_id)
-                if success and not is_vip:
+            success = submit_assignment(session, assignment, user_id)
+            
+            if success:
+                print_status("Thành công!", 'success', Colors.GREEN)
+                if not is_vip:
                     remaining_uses -= 1
                     save_license({
                         'key': license_data['key'],
@@ -1405,108 +1289,23 @@ def solve_specific_from_list(session, user_id, is_vip, remaining_uses):
                         'ip': license_data['ip']
                     })
                     print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
-                return success, remaining_uses
             else:
-                print_status("Số bài không hợp lệ", 'error', Colors.RED)
-                return False, remaining_uses
-        else:
-            # Giải nhiều bài
-            indices = []
-            for part in selection.split(','):
-                if part.strip().isdigit():
-                    idx = int(part.strip()) - 1
-                    if 0 <= idx < len(assignments):
-                        indices.append(idx)
+                print_status("Thất bại!", 'error', Colors.RED)
+                all_success = False
             
-            if indices:
-                success_count = 0
-                total_count = len(indices)
-                
-                for idx, assignment_idx in enumerate(indices, 1):
-                    print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
-                    assignment = assignments[assignment_idx]
-                    
-                    if not is_vip and remaining_uses <= 0:
-                        print_status("Hết lượt sử dụng! Vui lòng lấy key mới.", 'error', Colors.RED)
-                        break
-                        
-                    success = submit_assignment(session, assignment, user_id)
-                    
-                    if success:
-                        success_count += 1
-                        if not is_vip:
-                            remaining_uses -= 1
-                            save_license({
-                                'key': license_data['key'],
-                                'remain': remaining_uses,
-                                'expire': license_data['expire'],
-                                'ip': license_data['ip']
-                            })
-                            print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
-                    else:
-                        print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
-                    
-                    if idx < total_count:
-                        wait_time = random.randint(2, 5)
-                        print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
-                        time.sleep(wait_time)
-                
-                print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
-                print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
-                wait_enter()
-                return success_count > 0, remaining_uses
-            else:
-                print_status("Lựa chọn không hợp lệ", 'error', Colors.RED)
-                return False, remaining_uses
-    
+            # Chờ giữa các bài
+            if idx < len(indices):
+                wait_time = random.randint(2, 5)
+                print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
+                time.sleep(wait_time)
+        
+        wait_enter()
+        return all_success, remaining_uses
+        
     except Exception as e:
         print_status(f"Lỗi chọn bài: {str(e)}", 'error', Colors.RED)
+        wait_enter()
         return False, remaining_uses
-
-def process_all_assignments(session, assignments, user_id, is_vip, remaining_uses):
-    """Xử lý tất cả bài tập"""
-    if not assignments:
-        return 0, 0, remaining_uses
-    
-    print_header("BẮT ĐẦU XỬ LÝ")
-    
-    success_count = 0
-    total_count = len(assignments)
-    
-    for idx, assignment in enumerate(assignments, 1):
-        print(f"\n{Colors.YELLOW}📊 Bài {idx}/{total_count}{Colors.END}")
-        
-        if not is_vip and remaining_uses <= 0:
-            print_status("Hết lượt sử dụng! Vui lòng lấy key mới.", 'error', Colors.RED)
-            break
-            
-        success = submit_assignment(session, assignment, user_id)
-        
-        if success:
-            success_count += 1
-            if not is_vip:
-                remaining_uses -= 1
-                save_license({
-                    'key': license_data['key'],
-                    'remain': remaining_uses,
-                    'expire': license_data['expire'],
-                    'ip': license_data['ip']
-                })
-                print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
-        else:
-            print_status(f"Không thể xử lý bài {idx}", 'error', Colors.RED)
-        
-        # Chờ giữa các bài
-        if idx < total_count:
-            wait_time = random.randint(2, 5)
-            print_status(f"Chờ {wait_time}s...", 'clock', Colors.YELLOW)
-            time.sleep(wait_time)
-    
-    print(f"\n{Colors.CYAN}{ICONS['star']} KẾT QUẢ:{Colors.END}")
-    print(f"{Colors.GREEN}Thành công: {success_count}/{total_count}{Colors.END}")
-    
-    wait_enter()
-    return success_count, total_count, remaining_uses
 
 # ========== MENU CHÍNH ==========
 def main_menu(session, user_id, user_name, is_vip, remaining_uses):
@@ -1518,6 +1317,18 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
         
         if not is_vip:
             print(f"{Colors.YELLOW}Số lượt còn lại: {remaining_uses}{Colors.END}")
+        
+        # Nếu hết lượt, yêu cầu lấy key mới
+        if not is_vip and remaining_uses <= 0:
+            print(f"\n{Colors.RED}Hết lượt sử dụng! Vui lòng lấy key mới{Colors.END}")
+            new_license = handle_key_generation()
+            if new_license:
+                save_license(new_license)
+                print(f"{Colors.GREEN}Đăng ký thành công! Bạn có {new_license['remain']} lượt{Colors.END}")
+                return True, new_license['remain']
+            else:
+                print_status("Không thể đăng ký key", 'error', Colors.RED)
+                return False, remaining_uses
         
         menu_options = {
             '1': f"{ICONS['rocket']} Tự động hoàn thành bài",
@@ -1542,12 +1353,12 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
                 
                 selection = input(f"\n{Colors.YELLOW}Chọn bài (0 cho tất cả, hoặc 1,2,3...): {Colors.END}").strip()
                 if selection == '0':
-                    success, total, remaining_uses = process_all_assignments(session, assignments, user_id, is_vip, remaining_uses)
+                    _, remaining_uses = solve_specific_from_list(session, user_id, is_vip, remaining_uses)
                 else:
-                    success, remaining_uses = solve_specific_from_list(session, user_id, is_vip, remaining_uses)
+                    _, remaining_uses = solve_specific_from_list(session, user_id, is_vip, remaining_uses)
         
         elif choice == '2':
-            solve_from_link(session, user_id)
+            _, remaining_uses = solve_from_link(session, user_id, is_vip, remaining_uses)
         
         elif choice == '3':
             print_status("Đang đăng xuất...", 'refresh', Colors.YELLOW)
@@ -1582,6 +1393,7 @@ def main():
                 main_menu(session, user_id, user_name, True, float('inf'))
             else:
                 # Tải license tồn tại
+                global license_data
                 license_data = load_license()
                 today = datetime.now().strftime("%Y-%m-%d")
                 current_ip = get_public_ip()
