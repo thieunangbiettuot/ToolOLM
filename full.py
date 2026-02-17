@@ -4,7 +4,6 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║                    OLM MASTER - AUTO SOLVER                  ║
 ║                    Created by: Tuấn Anh                      ║
-║                    VIP Edition - v2.0                       ║
 ╚══════════════════════════════════════════════════════════════╝
 """
 
@@ -66,9 +65,7 @@ ICONS = {
     'list': '📋',
     'magic': '✨',
     'brain': '🧠',
-    'back': '↩️',
-    'vip': '👑',
-    'help': '❓'
+    'back': '↩️'
 }
 
 # ========== TIỆN ÍCH HIỂN THỊ ==========
@@ -112,38 +109,6 @@ def wait_enter(prompt="Nhấn Enter để tiếp tục..."):
 def print_status(message, icon='info', color=Colors.WHITE):
     """In thông báo trạng thái"""
     print(f"{ICONS.get(icon, '')} {color}{message}{Colors.END}")
-
-def print_tutorial():
-    """In hướng dẫn chi tiết"""
-    clear_screen()
-    print_line('═', Colors.PURPLE, 60)
-    print_centered(f"{ICONS['help']} HƯỚNG DẪN SỬ DỤNG {ICONS['help']}", Colors.PURPLE + Colors.BOLD, 60)
-    print_line('═', Colors.PURPLE, 60)
-    print()
-    
-    print(f"{Colors.YELLOW}1. TÀI KHOẢN VIP{Colors.END}")
-    print(f"  • Kiểm tra tự động từ file GitHub: {Colors.CYAN}https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/main/vip_users.txt{Colors.END}")
-    print(f"  • Tài khoản VIP: {Colors.GREEN}KHÔNG GIỚI HẠN LƯỢT{Colors.END}")
-    print(f"  • Dấu hiệu: Hiển thị {ICONS['vip']} {Colors.GREEN}Tài khoản VIP - Không giới hạn lượt sử dụng{Colors.END}")
-    
-    print(f"\n{Colors.YELLOW}2. TÀI KHOẢN FREE{Colors.END}")
-    print(f"  • Số lượt: {Colors.YELLOW}4 lượt/ngày{Colors.END} (tính từ lúc tạo key)")
-    print(f"  • Khi hết lượt: {Colors.RED}Vào lại tool và lấy key mới{Colors.END}")
-    print(f"  • IP thay đổi: Phải lấy key mới")
-    
-    print(f"\n{Colors.YELLOW}3. LÀM BÀI TẬP{Colors.END}")
-    print(f"  • Chọn bài: {Colors.CYAN}0{Colors.END} (tất cả) hoặc {Colors.CYAN}1,2,3{Colors.END} (nhiều bài)")
-    print(f"  • Làm xong: {Colors.GREEN}Số lượt tự động trừ{Colors.END}")
-    print(f"  • Khi hết lượt: {Colors.RED}Tự động quay lại tạo key mới{Colors.END}")
-    
-    print(f"\n{Colors.YELLOW}4. LỖI THƯỜNG GẶP{Colors.END}")
-    print(f"  • Lỗi 403: {Colors.GRAY}Bài đã được nộp trước đó{Colors.END}")
-    print(f"  • Lỗi link: {Colors.GRAY}Thử lại hoặc đổi IP{Colors.END}")
-    print(f"  • Lỗi key: {Colors.GRAY}Vui lòng kiểm tra lại key{Colors.END}")
-    
-    print()
-    print_line('═', Colors.PURPLE, 60)
-    wait_enter()
 
 # ========== XỬ LÝ TÀI KHOẢN ==========
 def get_appdata_dir():
@@ -254,10 +219,8 @@ def check_vip(user_name):
         if response.status_code == 200:
             vip_list = [line.strip() for line in response.text.splitlines() if line.strip()]
             return user_name in vip_list
-        else:
-            print_status(f"Không thể kiểm tra VIP (HTTP {response.status_code})", 'error', Colors.RED)
-    except Exception as e:
-        print_status(f"Kết nối lỗi: {str(e)}", 'error', Colors.RED)
+    except:
+        pass
     return False
 
 def generate_olm_key():
@@ -587,10 +550,6 @@ def get_assignments_fixed(session, pages_to_scan=5):
                     if is_tu_luan:
                         continue
                     
-                    # BỎ QUA BÀI KIỂM TRA (theo yêu cầu)
-                    if is_kiem_tra:
-                        continue
-                    
                     # ====== LOGIC KIỂM TRA TRẠNG THÁI ======
                     should_process = False
                     
@@ -634,6 +593,22 @@ def get_assignments_fixed(session, pages_to_scan=5):
                                     break
                                 elif "đã xem" in span_text:
                                     # Lý thuyết đã xem -> bỏ qua
+                                    should_process = False
+                                    break
+                    
+                    # B. BÀI KIỂM TRA (BỎ PHẦN DÒ BÀI KIỂM TRA)
+                    else:
+                        # Bỏ qua kiểm tra ẩn điểm
+                        if not status_spans:
+                            should_process = True
+                        else:
+                            for span in status_spans:
+                                span_text = span.get_text(strip=True).lower()
+                                if "chưa" in span_text or "chưa nộp" in span_text or "làm tiếp" in span_text:
+                                    should_process = True
+                                    break
+                                elif "điểm" in span_text and "đúng" in span_text:
+                                    # Đã có điểm -> đã làm
                                     should_process = False
                                     break
                     
@@ -697,6 +672,7 @@ def get_assignments_fixed(session, pages_to_scan=5):
             video_count = sum(1 for a in assignments if a['is_video'])
             ly_thuyet_count = sum(1 for a in assignments if a['is_ly_thuyet'])
             bai_tap_count = sum(1 for a in assignments if a['is_bai_tap'])
+            kiem_tra_count = sum(1 for a in assignments if a['is_kiem_tra'])
             
             print(f"\n{Colors.CYAN}📊 THỐNG KÊ LOẠI BÀI:{Colors.END}")
             if video_count > 0:
@@ -705,6 +681,8 @@ def get_assignments_fixed(session, pages_to_scan=5):
                 print(f"  {ICONS['theory']} Lý thuyết: {ly_thuyet_count} bài")
             if bai_tap_count > 0:
                 print(f"  {ICONS['exercise']} Bài tập: {bai_tap_count} bài")
+            if kiem_tra_count > 0:
+                print(f"  {ICONS['warning']} Kiểm tra: {kiem_tra_count} bài")
             
             return assignments
         else:
@@ -735,6 +713,9 @@ def display_assignments_table(assignments):
         elif item['is_ly_thuyet']:
             loai_color = Colors.CYAN
             icon = ICONS['theory']
+        elif item['is_kiem_tra']:
+            loai_color = Colors.YELLOW
+            icon = ICONS['warning']
         else:
             loai_color = Colors.GREEN
             icon = ICONS['exercise']
@@ -1353,13 +1334,12 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
             '1': f"{ICONS['rocket']} Tự động hoàn thành bài",
             '2': f"{ICONS['link']} Giải bài từ link OLM",
             '3': f"{ICONS['refresh']} Đăng xuất",
-            '4': f"{ICONS['exit']} Thoát",
-            '5': f"{ICONS['help']} Hướng dẫn sử dụng"
+            '4': f"{ICONS['exit']} Thoát"
         }
         
         print_menu("LỰA CHỌN", menu_options)
         
-        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-5): {Colors.END}").strip()
+        choice = input(f"\n{Colors.YELLOW}Chọn chức năng (1-4): {Colors.END}").strip()
         
         if choice == '1':
             pages_input = input(f"{Colors.YELLOW}Số trang cần quét (mặc định: 3): {Colors.END}").strip()
@@ -1390,9 +1370,6 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
             time.sleep(1)
             sys.exit(0)
         
-        elif choice == '5':
-            print_tutorial()
-        
         else:
             print_status("Lựa chọn không hợp lệ!", 'error', Colors.RED)
             time.sleep(1)
@@ -1403,9 +1380,6 @@ def main_menu(session, user_id, user_name, is_vip, remaining_uses):
 def main():
     """Chương trình chính"""
     
-    # Hiển thị tutorial khi chạy lần đầu
-    print_tutorial()
-    
     while True:
         # Đăng nhập
         session, user_id, user_name = login_olm()
@@ -1415,7 +1389,7 @@ def main():
             is_vip = check_vip(user_name)
             
             if is_vip:
-                print(f"{Colors.GREEN}{ICONS['vip']} TÀI KHOẢN VIP - KHÔNG GIỚI HẠN LƯỢT SỬ DỤNG{Colors.END}")
+                print(f"{Colors.GREEN}Tài khoản VIP - Không giới hạn lượt sử dụng{Colors.END}")
                 main_menu(session, user_id, user_name, True, float('inf'))
             else:
                 # Tải license tồn tại
