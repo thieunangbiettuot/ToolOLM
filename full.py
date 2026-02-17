@@ -247,17 +247,64 @@ def save_license(data):
 
 # ========== XỬ LÝ VIP & KEY ==========
 def check_vip(user_name):
-    """Kiểm tra tài khoản VIP (realtime) - CHỈ KIỂM TRA DỰA TRÊN DANH SÁCH CÓ SẴN"""
-    vip_url = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/main/vip_users.txt"
+    """Kiểm tra tài khoản VIP (realtime)"""
+    vip_url = "https://raw.githubusercontent.com/thieunangbiettuot/ToolOLM/refs/heads/main/vip_users.txt"
     try:
         response = requests.get(vip_url, timeout=5)
         if response.status_code == 200:
-            # Làm sạch danh sách VIP
             vip_list = [line.strip() for line in response.text.splitlines() if line.strip()]
             return user_name in vip_list
-    except:
-        pass
+        else:
+            print_status(f"Không thể kiểm tra VIP (HTTP {response.status_code})", 'error', Colors.RED)
+    except Exception as e:
+        print_status(f"Kết nối lỗi: {str(e)}", 'error', Colors.RED)
     return False
+
+def generate_olm_key():
+    """Tạo key với định dạng OLMFREE-DDMM-XXXX-YYYY"""
+    now = datetime.now()
+    device_id = hashlib.md5(f"{socket.gethostname()}{uuid.getnode()}".encode()).hexdigest()[:16]
+    unique_str = f"{device_id}{now.timestamp()}{random.randint(1000, 9999)}"
+    hash_val = hashlib.sha256(unique_str.encode()).hexdigest()
+    return f"OLMFREE-{now:%d%m}-{hash_val[:4].upper()}-{hash_val[4:8].upper()}"
+
+LINK_SERVICES = [
+    {"api": "https://link4m.co/api-shorten/v2", "token": "698b226d9150d31d216157a5"},
+    {"api": "https://link4m.co/api-shorten/v2", "token": "698b226d9150d31d216157a5"},
+]
+
+def create_short_link(url):
+    """Tạo link rút gọn qua link4m (nhiều service)"""
+    headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json"
+    }
+    for service in LINK_SERVICES:
+        try:
+            # Sử dụng params thay vì nối chuỗi URL
+            params = {
+                'api': service['token'],
+                'url': url
+            }
+            
+            response = requests.get(
+                service['api'],
+                params=params,
+                headers=headers,
+                timeout=8
+            )
+            
+            if response.status_code != 200:
+                continue
+                
+            data = response.json()
+            if data.get("status") == "success":
+                return data.get("shortenedUrl")
+                
+        except Exception as e:
+            continue
+        time.sleep(random.uniform(0.5, 1.2))
+    return None
 
 def get_public_ip():
     """Lấy IP public của người dùng"""
