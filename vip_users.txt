@@ -17,3 +17,5 @@ P_huynhthidiemnhi
 #Cuối năm học
 p_ngovinhthang
 Cuối năm học
+hp_lynhatuyen #Chưa thanh toán
+hp_tranletuyetanh #Chưa thanh toán
