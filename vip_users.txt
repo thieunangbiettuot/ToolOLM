@@ -3,12 +3,11 @@ hsc3hqv_duongvandat1
 #Cuối năm học
 c2kb_phamdinhphong
 #Cuối năm học
-c2kb_ledangmanhthang
+c2kb_ledangmanhthan #treo
+c2kb_nguyenanht #treo
 #Cuối năm học
 p_hoanganhvu
 #Cuối năm học
-c2kb_nguyenanht
-       #chờ thanh toán
 #Cuối năm học
 hp_luongvantiep
 #Tháng 5
@@ -25,3 +24,4 @@ hp_tranletuyetanh
 11a9_nguyentienmanh
 #Cuối năm học
 ntntt_visytuong
+#Cuối năm học
