@@ -11,18 +11,14 @@ p_hoanganhvu
 hp_luongvantiep
 #Tháng 5
 thcstb2011_nguyenvanhuynh
-#Cuối năm học
 P_huynhthidiemnhi
-#Cuối năm học
 p_ngovinhthang
-Cuối năm học
 hp_lynhatuyen
 #Chưa thanh toán
 hp_tranletuyetanh 
 #Chưa thanh toán
 11a9_nguyentienmanh
 ntntt_visytuong
-#Cuối năm học
 Thcstb2011_phamkhanhhung
 thcstb2011_hoangminhquan
 hp_daoviethung
