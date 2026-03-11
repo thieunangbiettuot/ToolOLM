@@ -3,20 +3,15 @@ a92010_buiquoctuananh
 hsc3hqv_duongvandat1
 c2kb_dinhtiendat
 c2kb_phamdinhphong
-#Cuối năm học
 c2kb_nguyenanhtu
-#Cuối năm học
 p_hoanganhvu
-#Cuối năm học
 hp_luongvantiep
 #Tháng 5
 thcstb2011_nguyenvanhuynh
 P_huynhthidiemnhi
 p_ngovinhthang
 hp_lynhatuyen
-#Chưa thanh toán
 hp_tranletuyetanh 
-#Chưa thanh toán
 11a9_nguyentienmanh
 ntntt_visytuong
 Thcstb2011_phamkhanhhung
