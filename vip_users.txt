@@ -1,6 +1,5 @@
 c2kb_dinhtiendat
 c2kb_nguyenanhtu
-p_hoanganhvu
 thcstb2011_nguyenvanhuynh
 P_huynhthidiemnhi
 p_ngovinhthang
